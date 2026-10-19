@@ -1,0 +1,2082 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#f8fafc" />
+  <title>Spotify Aile Paketi Takip</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='12' fill='%231DB954'/%3E%3C/svg%3E" />
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+
+  <style>
+    body { margin: 0; background: #f8fafc; }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .toast-in { animation: toastIn 0.25s ease-out; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- React + Babel (JSX'i tarayıcıda derler) -->
+  <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.26.4/babel.min.js"></script>
+
+  <script type="text/babel" data-presets="react">
+
+  const { useState, useMemo, useRef, useEffect } = React;
+
+  /* =====================================================================
+   * 1) İKONLAR (Lucide ikon seti, satır içi SVG olarak)
+   * ===================================================================== */
+
+  const ICON_PATHS = {
+    Users: `<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><path d="M16 3.128a4 4 0 0 1 0 7.744"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><circle cx="9" cy="7" r="4"/>`,
+    TrendingUp: `<path d="M16 7h6v6"/><path d="m22 7-8.5 8.5-5-5L2 17"/>`,
+    CheckCircle2: `<circle cx="12" cy="12" r="10"/><path d="m16 9-5.5 5.5L8 12"/>`,
+    XCircle: `<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>`,
+    Plus: `<path d="M5 12h14"/><path d="M12 5v14"/>`,
+    Trash2: `<path d="M10 11v6"/><path d="M14 11v6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>`,
+    AlertCircle: `<circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>`,
+    Copy: `<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>`,
+    Check: `<path d="M20 6 9 17l-5-5"/>`,
+    ArrowUpDown: `<path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/>`,
+    Filter: `<path d="M10 20a1 1 0 0 0 .553.895l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .517-1.341L21.74 4.67A1 1 0 0 0 21 3H3a1 1 0 0 0-.742 1.67l7.225 7.989A2 2 0 0 1 10 14z"/>`,
+    Sparkles: `<path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/>`,
+    UserPlus: `<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/>`,
+    Receipt: `<path d="M12 17V7"/><path d="M16 8h-6a2 2 0 0 0 0 4h4a2 2 0 0 1 0 4H8"/><path d="M4 3a1 1 0 0 1 1-1 1.3 1.3 0 0 1 .7.2l.933.6a1.3 1.3 0 0 0 1.4 0l.934-.6a1.3 1.3 0 0 1 1.4 0l.933.6a1.3 1.3 0 0 0 1.4 0l.933-.6a1.3 1.3 0 0 1 1.4 0l.934.6a1.3 1.3 0 0 0 1.4 0l.933-.6A1.3 1.3 0 0 1 19 2a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1 1.3 1.3 0 0 1-.7-.2l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.934.6a1.3 1.3 0 0 1-1.4 0l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-1.4 0l-.934-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-.7.2 1 1 0 0 1-1-1z"/>`,
+    Edit3: `<path d="M13 21h8"/><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/>`,
+    Crown: `<path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/><path d="M5 21h14"/>`,
+    Sun: `<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>`,
+    Moon: `<path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/>`,
+    Lock: `<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>`,
+    Cloud: `<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>`,
+    CloudOff: `<path d="M10.94 5.274A7 7 0 0 1 15.71 10h1.79a4.5 4.5 0 0 1 4.222 6.057"/><path d="M18.796 18.81A4.5 4.5 0 0 1 17.5 19H9A7 7 0 0 1 5.79 5.78"/><path d="m2 2 20 20"/>`,
+    RefreshCw: `<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>`,
+    Download: `<path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/>`,
+    Upload: `<path d="M12 3v12"/><path d="m17 8-5-5-5 5"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>`,
+    X: `<path d="M18 6 6 18"/><path d="m6 6 12 12"/>`,
+    RotateCcw: `<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>`
+  };
+
+  const makeIcon = (name) =>
+    function Icon({ className = '', ...props }) {
+      return (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+          className={className}
+          dangerouslySetInnerHTML={{ __html: ICON_PATHS[name] }}
+          {...props}
+        />
+      );
+    };
+
+  const Users = makeIcon('Users');
+  const TrendingUp = makeIcon('TrendingUp');
+  const CheckCircle2 = makeIcon('CheckCircle2');
+  const XCircle = makeIcon('XCircle');
+  const Plus = makeIcon('Plus');
+  const Trash2 = makeIcon('Trash2');
+  const AlertCircle = makeIcon('AlertCircle');
+  const Copy = makeIcon('Copy');
+  const Check = makeIcon('Check');
+  const ArrowUpDown = makeIcon('ArrowUpDown');
+  const Filter = makeIcon('Filter');
+  const Sparkles = makeIcon('Sparkles');
+  const UserPlus = makeIcon('UserPlus');
+  const Receipt = makeIcon('Receipt');
+  const Edit3 = makeIcon('Edit3');
+  const Crown = makeIcon('Crown');
+  const Sun = makeIcon('Sun');
+  const Moon = makeIcon('Moon');
+  const Lock = makeIcon('Lock');
+  const Cloud = makeIcon('Cloud');
+  const CloudOff = makeIcon('CloudOff');
+  const RefreshCw = makeIcon('RefreshCw');
+  const Download = makeIcon('Download');
+  const Upload = makeIcon('Upload');
+  const X = makeIcon('X');
+  const RotateCcw = makeIcon('RotateCcw');
+
+  /* =====================================================================
+   * 2) GITHUB GIST ILE ESITLEME (sunucu gerekmez)
+   * ===================================================================== */
+  const API = 'https://api.github.com';
+  const FILE = 'spotify-aile-paketi.json';
+
+  async function gh(token, path, opts = {}) {
+    let res;
+    try {
+      res = await fetch(API + path, {
+        ...opts,
+        cache: 'no-store',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/vnd.github+json',
+          ...(opts.body ? { 'Content-Type': 'application/json' } : {})
+        }
+      });
+    } catch (e) {
+      throw new Error('İnternet bağlantısı yok veya GitHub\'a ulaşılamadı');
+    }
+    if (!res.ok) {
+      let msg = `GitHub hatası (${res.status})`;
+      if (res.status === 401) msg = 'Token geçersiz veya süresi dolmuş';
+      if (res.status === 403) msg = 'GitHub erişimi reddetti (token izni veya istek limiti)';
+      if (res.status === 404) msg = 'Gist bulunamadı (silinmiş olabilir)';
+      const err = new Error(msg);
+      err.status = res.status;
+      throw err;
+    }
+    return res.json();
+  }
+
+  async function findGist(token) {
+    for (let page = 1; page <= 10; page++) {
+      const list = await gh(token, `/gists?per_page=100&page=${page}`);
+      const hit = list.find((g) => g.files && g.files[FILE]);
+      if (hit) return hit.id;
+      if (list.length < 100) break;
+    }
+    return null;
+  }
+
+  async function createGist(token, data) {
+    const g = await gh(token, '/gists', {
+      method: 'POST',
+      body: JSON.stringify({
+        description: 'Spotify Aile Paketi Takip verisi',
+        public: false,
+        files: { [FILE]: { content: JSON.stringify(data) } }
+      })
+    });
+    return g.id;
+  }
+
+  async function readGist(token, id) {
+    const g = await gh(token, `/gists/${id}`);
+    const f = g.files && g.files[FILE];
+    if (!f) throw new Error('Gist içinde veri dosyası bulunamadı');
+    let content = f.content;
+    if (f.truncated) {
+      const r = await fetch(f.raw_url, { cache: 'no-store' });
+      content = await r.text();
+    }
+    return JSON.parse(content);
+  }
+
+  async function writeGist(token, id, data) {
+    await gh(token, `/gists/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ files: { [FILE]: { content: JSON.stringify(data) } } })
+    });
+  }
+
+  /* =====================================================================
+   * 3) UYGULAMA
+   * ===================================================================== */
+  const MAX_MEMBERS = 6;
+  const START_KEY = '2024-12';
+
+  const MONTH_NAMES = [
+    'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
+    'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'
+  ];
+
+  const AVATAR_COLORS = [
+    'from-emerald-500 to-green-600',
+    'from-blue-500 to-indigo-600',
+    'from-purple-500 to-fuchsia-600',
+    'from-amber-500 to-orange-600',
+    'from-rose-500 to-pink-600',
+    'from-cyan-500 to-teal-600'
+  ];
+
+  /* ---------- yardımcılar ---------- */
+
+  const lsGet = (k) => {
+    try { return localStorage.getItem(k); } catch (e) { return null; }
+  };
+  const lsSet = (k, v) => {
+    try { localStorage.setItem(k, v); } catch (e) { /* yok say */ }
+  };
+  const lsDel = (k) => {
+    try { localStorage.removeItem(k); } catch (e) { /* yok say */ }
+  };
+
+  const monthKeyOf = (y, m) => `${y}-${String(m + 1).padStart(2, '0')}`;
+
+  const currentMonthKey = () => {
+    const d = new Date();
+    return monthKeyOf(d.getFullYear(), d.getMonth());
+  };
+
+  const nextMonthKey = (key) => {
+    const [y, m] = key.split('-').map(Number);
+    return m === 12 ? monthKeyOf(y + 1, 0) : monthKeyOf(y, m);
+  };
+
+  // START_KEY'den endKey'e kadar tüm ayları üretir
+  const buildMonths = (endKey) => {
+    const list = [];
+    let [year, month] = START_KEY.split('-').map(Number);
+    month -= 1;
+    const [endYear, endMonthNum] = endKey.split('-').map(Number);
+    const endMonth = endMonthNum - 1;
+    while (year < endYear || (year === endYear && month <= endMonth)) {
+      list.push({
+        key: monthKeyOf(year, month),
+        year,
+        monthIndex: month,
+        label: `${MONTH_NAMES[month]} ${year}`
+      });
+      month++;
+      if (month > 11) {
+        month = 0;
+        year++;
+      }
+    }
+    return list;
+  };
+
+  const parseNum = (v) => parseFloat(String(v).replace(',', '.'));
+  const fmt = (n) => Number(n).toFixed(2);
+
+  // Kayıt yoksa: yönetici ödemiş, diğerleri ödememiş sayılır
+  const isPaidFn = (payments, monthKey, member) => {
+    const row = payments[monthKey];
+    if (row && Object.prototype.hasOwnProperty.call(row, member.id)) return !!row[member.id];
+    return !!member.isAdmin;
+  };
+
+  /* ---------- başlangıç verisi ---------- */
+
+  const INITIAL_MEMBERS = [
+    { id: 'u1', name: 'Sen (Yönetici)', isAdmin: true, color: AVATAR_COLORS[0] },
+    { id: 'u2', name: 'Ahmet', isAdmin: false, color: AVATAR_COLORS[1] },
+    { id: 'u3', name: 'Zeynep', isAdmin: false, color: AVATAR_COLORS[2] },
+    { id: 'u4', name: 'Mert', isAdmin: false, color: AVATAR_COLORS[3] }
+  ];
+
+  const INITIAL_PRICE_HISTORY = [
+    { id: 'p1', startKey: '2024-12', price: 99.99, note: 'Aralık 2024 Başlangıç Fiyatı' },
+    { id: 'p2', startKey: '2025-06', price: 135.0, note: 'Haziran 2025 Spotify Zammı' },
+    { id: 'p3', startKey: '2026-02', price: 165.0, note: 'Şubat 2026 Güncel Zam' }
+  ];
+
+  const buildInitialPayments = (months, members) => {
+    const map = {};
+    months.forEach((m, idx) => {
+      map[m.key] = {};
+      members.forEach((mem) => {
+        if (mem.isAdmin) map[m.key][mem.id] = true;
+        else if (mem.id === 'u2' && idx >= months.length - 3) map[m.key][mem.id] = false;
+        else if (mem.id === 'u4' && idx >= months.length - 5) map[m.key][mem.id] = false;
+        else map[m.key][mem.id] = true;
+      });
+    });
+    return map;
+  };
+
+  const makeDefaults = () => {
+    const endKey = '2026-10';
+    return {
+      members: INITIAL_MEMBERS,
+      priceHistory: INITIAL_PRICE_HISTORY,
+      customMonthPrices: {},
+      endKey,
+      payments: buildInitialPayments(buildMonths(endKey), INITIAL_MEMBERS),
+      updatedAt: 0
+    };
+  };
+
+  const isValidData = (d) =>
+    !!d &&
+    Array.isArray(d.members) &&
+    d.members.length > 0 &&
+    Array.isArray(d.priceHistory) &&
+    d.priceHistory.length > 0 &&
+    !!d.payments &&
+    typeof d.payments === 'object';
+
+  const normalize = (d) => ({
+    members: d.members,
+    priceHistory: d.priceHistory,
+    customMonthPrices: d.customMonthPrices && typeof d.customMonthPrices === 'object' ? d.customMonthPrices : {},
+    endKey: typeof d.endKey === 'string' ? d.endKey : '2026-10',
+    payments: d.payments,
+    updatedAt: Number(d.updatedAt) || 0
+  });
+
+  const loadLocal = () => {
+    try {
+      const raw = lsGet('spt_data');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (isValidData(parsed)) return normalize(parsed);
+      }
+    } catch (e) { /* bozuk kayıt: varsayılana dön */ }
+    return makeDefaults();
+  };
+
+  /* ---------- Eşitleme penceresi ---------- */
+
+  function SyncModal({
+    isLightMode, connected, syncState, syncMsg, lastSyncAt,
+    onConnect, onDisconnect, onSyncNow, onExport, onImport, onClose
+  }) {
+    const [tokenInput, setTokenInput] = useState('');
+    const fileRef = useRef(null);
+
+    const card = isLightMode ? 'bg-white border-slate-200 text-slate-900' : 'bg-zinc-900 border-zinc-800 text-white';
+    const sub = isLightMode ? 'text-slate-600' : 'text-zinc-400';
+    const btnGray = isLightMode ? 'bg-slate-100 hover:bg-slate-200 text-slate-700' : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200';
+
+    const statusText = {
+      off: 'Eşitleme kapalı (veriler sadece bu cihazda)',
+      idle: 'Bağlı',
+      syncing: 'Eşitleniyor...',
+      ok: `Eşitlendi${lastSyncAt ? ' • ' + new Date(lastSyncAt).toLocaleTimeString('tr-TR') : ''}`,
+      error: `Hata: ${syncMsg}`
+    }[syncState];
+
+    return (
+      <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+        <div className={`border rounded-2xl max-w-lg w-full p-5 shadow-2xl my-8 ${card}`}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold flex items-center gap-2">
+              <Cloud className="w-5 h-5 text-[#1DB954]" />
+              Cihazlar Arası Eşitleme
+            </h3>
+            <button onClick={onClose} className={`p-1.5 rounded-lg ${btnGray}`} aria-label="Kapat">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div
+            className={`text-sm rounded-xl px-3 py-2 mb-4 border ${
+              syncState === 'error'
+                ? isLightMode ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                : isLightMode ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-[#1DB954]/10 border-[#1DB954]/30 text-[#1DB954]'
+            }`}
+          >
+            {statusText}
+          </div>
+
+          {!connected ? (
+            <div className="space-y-3">
+              <p className={`text-sm leading-relaxed ${sub}`}>
+                Verilerin GitHub hesabında <strong>gizli bir Gist</strong> olarak saklanır. Telefon ve bilgisayarda
+                aynı token'ı girince ikisi de aynı veriyi görür.
+              </p>
+              <ol className={`text-sm list-decimal pl-5 space-y-1 ${sub}`}>
+                <li>
+                  GitHub → Settings → Developer settings → Personal access tokens → <strong>Tokens (classic)</strong> →
+                  Generate new token (classic)
+                </li>
+                <li>Sadece <strong>gist</strong> iznini işaretle, oluştur ve token'ı kopyala.</li>
+                <li>Aşağıya yapıştır. Diğer cihazda da aynı token'ı gir.</li>
+              </ol>
+              <input
+                type="password"
+                value={tokenInput}
+                onChange={(e) => setTokenInput(e.target.value)}
+                placeholder="ghp_..."
+                autoComplete="off"
+                className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#1DB954] ${
+                  isLightMode ? 'bg-white border-slate-300 text-slate-900' : 'bg-zinc-950 border-zinc-700 text-white'
+                }`}
+              />
+              <button
+                onClick={() => onConnect(tokenInput)}
+                className="w-full bg-[#1DB954] hover:bg-[#1ed760] text-black font-bold text-sm px-4 py-2.5 rounded-xl transition"
+              >
+                Bağlan ve Eşitle
+              </button>
+              <p className={`text-[11px] ${sub}`}>
+                Token sadece bu tarayıcının hafızasında durur, koda veya GitHub'a yazılmaz.
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={onSyncNow}
+                className="flex items-center gap-1.5 bg-[#1DB954] hover:bg-[#1ed760] text-black font-bold text-sm px-4 py-2.5 rounded-xl transition"
+              >
+                <RefreshCw className="w-4 h-4" /> Şimdi Eşitle
+              </button>
+              <button onClick={onDisconnect} className={`text-sm font-semibold px-4 py-2.5 rounded-xl transition ${btnGray}`}>
+                Bağlantıyı Kes
+              </button>
+            </div>
+          )}
+
+          <div className={`mt-5 pt-4 border-t ${isLightMode ? 'border-slate-200' : 'border-zinc-800'}`}>
+            <h4 className="text-sm font-bold mb-2">Yedek</h4>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={onExport} className={`flex items-center gap-1.5 text-sm font-semibold px-3.5 py-2 rounded-xl transition ${btnGray}`}>
+                <Download className="w-4 h-4" /> Dışa Aktar (.json)
+              </button>
+              <button onClick={() => fileRef.current && fileRef.current.click()} className={`flex items-center gap-1.5 text-sm font-semibold px-3.5 py-2 rounded-xl transition ${btnGray}`}>
+                <Upload className="w-4 h-4" /> İçe Aktar
+              </button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="application/json,.json"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files && e.target.files[0];
+                  if (f) onImport(f);
+                  e.target.value = '';
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ---------- Ana uygulama ---------- */
+
+  function App() {
+    const [isLightMode, setIsLightMode] = useState(() => lsGet('spt_theme') !== 'dark');
+    const [data, setData] = useState(loadLocal);
+    const { members, priceHistory, customMonthPrices, payments } = data;
+
+    const months = useMemo(() => {
+      const cur = currentMonthKey();
+      return buildMonths(data.endKey > cur ? data.endKey : cur);
+    }, [data.endKey]);
+
+    // Form durumları
+    const [newMemberName, setNewMemberName] = useState('');
+    const [cardNewMemberName, setCardNewMemberName] = useState('');
+    const [newMemberDefaultPaid, setNewMemberDefaultPaid] = useState(false);
+    const [editingMemberId, setEditingMemberId] = useState(null);
+    const [editingMemberName, setEditingMemberName] = useState('');
+    const topInputRef = useRef(null);
+
+    const [zamMonthKey, setZamMonthKey] = useState(() => {
+      const cur = currentMonthKey();
+      return cur >= START_KEY ? cur : START_KEY;
+    });
+    const [zamPrice, setZamPrice] = useState('');
+
+    const [selectedYear, setSelectedYear] = useState('ALL');
+    const [onlyUnpaidFilter, setOnlyUnpaidFilter] = useState(false);
+    const [sortAsc, setSortAsc] = useState(true);
+    const [selectedUserHighlight, setSelectedUserHighlight] = useState(null);
+
+    const [toast, setToast] = useState(null);
+    const toastTimer = useRef(null);
+    const [editingSingleMonthKey, setEditingSingleMonthKey] = useState(null);
+    const [singleMonthPriceInput, setSingleMonthPriceInput] = useState('');
+    const [memberToDelete, setMemberToDelete] = useState(null);
+    const [showSync, setShowSync] = useState(false);
+
+    const isMaxReached = members.length >= MAX_MEMBERS;
+
+    const showToast = (message) => {
+      setToast(message);
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+      toastTimer.current = setTimeout(() => setToast(null), 3400);
+    };
+
+    // Tüm veri değişikliklerinin geçtiği tek nokta (zaman damgası eşitleme için)
+    const mutate = (fn) =>
+      setData((prev) => ({
+        ...prev,
+        ...fn(prev),
+        updatedAt: Math.max(Date.now(), prev.updatedAt + 1)
+      }));
+
+    /* ---------- Eşitleme ---------- */
+
+    const [token, setToken] = useState(() => lsGet('spt_token') || '');
+    const [gistId, setGistId] = useState(() => lsGet('spt_gist') || '');
+    const [syncState, setSyncState] = useState(() => (lsGet('spt_token') ? 'idle' : 'off'));
+    const [syncMsg, setSyncMsg] = useState('');
+    const [lastSyncAt, setLastSyncAt] = useState(null);
+
+    const dataRef = useRef(data);
+    dataRef.current = data;
+    const tokenRef = useRef(token);
+    tokenRef.current = token;
+    const gistRef = useRef(gistId);
+    gistRef.current = gistId;
+    const syncedRef = useRef(Number(lsGet('spt_synced') || 0));
+    const busyRef = useRef(false);
+
+    const markSynced = (ts) => {
+      syncedRef.current = ts;
+      lsSet('spt_synced', String(ts));
+    };
+    const saveGist = (id) => {
+      gistRef.current = id;
+      setGistId(id);
+      if (id) lsSet('spt_gist', id);
+      else lsDel('spt_gist');
+    };
+    const applyRemote = (remote) => {
+      const n = normalize(remote);
+      markSynced(n.updatedAt);
+      dataRef.current = n;
+      setData(n);
+    };
+
+    const syncNow = async () => {
+      const tk = tokenRef.current;
+      if (!tk || busyRef.current) return;
+      busyRef.current = true;
+      setSyncState('syncing');
+      setSyncMsg('');
+      let failed = false;
+      try {
+        let id = gistRef.current;
+        let firstConnect = false;
+        if (!id) {
+          firstConnect = true;
+          id = await findGist(tk);
+          if (!id) {
+            const local = dataRef.current;
+            id = await createGist(tk, local);
+            saveGist(id);
+            markSynced(local.updatedAt);
+            setSyncState('ok');
+            setLastSyncAt(Date.now());
+            return;
+          }
+          saveGist(id);
+        }
+
+        let remote;
+        try {
+          remote = await readGist(tk, id);
+        } catch (e) {
+          if (e.status === 404) {
+            // Gist silinmiş: yeniden oluşturmak için kimliği sıfırla
+            saveGist('');
+          }
+          throw e;
+        }
+        if (!isValidData(remote)) throw new Error('Buluttaki veri okunamadı');
+
+        const local = dataRef.current;
+        const rts = Number(remote.updatedAt) || 0;
+
+        if (firstConnect && local.updatedAt > 0 && rts !== local.updatedAt) {
+          const useRemote = window.confirm(
+            'Bulutta kayıtlı veri bulundu ve bu cihazdaki veriden farklı.\n\n' +
+            'TAMAM: Buluttaki veri kullanılsın (bu cihazdaki veri silinir)\n' +
+            'İPTAL: Bu cihazdaki veri buluta yazılsın (buluttaki veri silinir)'
+          );
+          if (useRemote) {
+            applyRemote(remote);
+          } else {
+            const nd = { ...local, updatedAt: Math.max(Date.now(), rts + 1) };
+            dataRef.current = nd;
+            setData(nd);
+            await writeGist(tk, id, nd);
+            markSynced(nd.updatedAt);
+          }
+        } else if (rts > local.updatedAt) {
+          applyRemote(remote);
+        } else if (local.updatedAt > rts) {
+          await writeGist(tk, id, local);
+          markSynced(local.updatedAt);
+        } else {
+          markSynced(local.updatedAt);
+        }
+        setSyncState('ok');
+        setLastSyncAt(Date.now());
+      } catch (e) {
+        failed = true;
+        setSyncState('error');
+        setSyncMsg(e.message || 'Bağlantı hatası');
+      } finally {
+        busyRef.current = false;
+        if (!failed && dataRef.current.updatedAt > syncedRef.current) {
+          setTimeout(() => syncNow(), 600);
+        }
+      }
+    };
+
+    // Yerel kayıt + değişiklikte buluta gönder (kısa gecikmeyle)
+    useEffect(() => {
+      lsSet('spt_data', JSON.stringify(data));
+      if (tokenRef.current && data.updatedAt > syncedRef.current) {
+        const t = setTimeout(() => syncNow(), 800);
+        return () => clearTimeout(t);
+      }
+      return undefined;
+    }, [data]);
+
+    // Periyodik ve odaklanınca eşitle
+    useEffect(() => {
+      if (!token) return undefined;
+      syncNow();
+      const tick = () => {
+        if (document.visibilityState === 'visible') syncNow();
+      };
+      const iv = setInterval(tick, 12000);
+      document.addEventListener('visibilitychange', tick);
+      window.addEventListener('online', tick);
+      return () => {
+        clearInterval(iv);
+        document.removeEventListener('visibilitychange', tick);
+        window.removeEventListener('online', tick);
+      };
+    }, [token]);
+
+    useEffect(() => {
+      lsSet('spt_theme', isLightMode ? 'light' : 'dark');
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute('content', isLightMode ? '#f8fafc' : '#0c0c0c');
+    }, [isLightMode]);
+
+    const handleConnect = (raw) => {
+      const tk = raw.trim();
+      if (!tk) {
+        showToast('Lütfen GitHub token\'ını yapıştır.');
+        return;
+      }
+      lsSet('spt_token', tk);
+      tokenRef.current = tk;
+      if (tk === token) {
+        syncNow();
+      } else {
+        saveGist('');
+        setToken(tk);
+      }
+    };
+
+    const handleDisconnect = () => {
+      lsDel('spt_token');
+      lsDel('spt_gist');
+      tokenRef.current = '';
+      setToken('');
+      saveGist('');
+      setSyncState('off');
+      setSyncMsg('');
+      showToast('Eşitleme kapatıldı. Veriler bu cihazda duruyor.');
+    };
+
+    const handleExport = () => {
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `spotify-takip-yedek-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    };
+
+    const handleImport = (file) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const parsed = JSON.parse(String(reader.result));
+          if (!isValidData(parsed)) throw new Error('geçersiz');
+          if (!window.confirm('Bu cihazdaki ve eşitlenen tüm veri, dosyadaki veriyle değiştirilecek. Devam edilsin mi?')) return;
+          const n = normalize(parsed);
+          setData({ ...n, updatedAt: Math.max(Date.now(), data.updatedAt + 1) });
+          showToast('Yedek içe aktarıldı.');
+        } catch (e) {
+          showToast('Dosya okunamadı: geçerli bir yedek dosyası değil.');
+        }
+      };
+      reader.readAsText(file);
+    };
+
+    /* ---------- Fiyat hesapları ---------- */
+
+    const sortedPriceHistory = useMemo(
+      () => [...priceHistory].sort((a, b) => a.startKey.localeCompare(b.startKey)),
+      [priceHistory]
+    );
+
+    const monthPricingMap = useMemo(() => {
+      const result = {};
+      const memberCount = Math.max(members.length, 1);
+
+      months.forEach((m) => {
+        if (customMonthPrices[m.key] !== undefined) {
+          const total = Number(customMonthPrices[m.key]);
+          result[m.key] = {
+            totalPrice: total,
+            perPerson: total / memberCount,
+            isZamMonth: true,
+            isCustom: true,
+            zamNote: 'Özel Ay Fiyatı'
+          };
+          return;
+        }
+
+        let activeRule = sortedPriceHistory[0] || { price: 99.99, startKey: START_KEY, note: '' };
+        let isExactZamStart = false;
+
+        for (const rule of sortedPriceHistory) {
+          if (rule.startKey <= m.key) {
+            activeRule = rule;
+            isExactZamStart = rule.startKey === m.key && rule.startKey !== sortedPriceHistory[0].startKey;
+          }
+        }
+
+        result[m.key] = {
+          totalPrice: activeRule.price,
+          perPerson: activeRule.price / memberCount,
+          isZamMonth: isExactZamStart,
+          isCustom: false,
+          zamNote: activeRule.note
+        };
+      });
+
+      return result;
+    }, [months, sortedPriceHistory, customMonthPrices, members.length]);
+
+    const memberStats = useMemo(() => {
+      const stats = {};
+      members.forEach((mem) => {
+        stats[mem.id] = {
+          unpaidMonthsCount: 0,
+          unpaidTotalTL: 0,
+          paidMonthsCount: 0,
+          paidTotalTL: 0,
+          unpaidMonthLabels: []
+        };
+      });
+
+      months.forEach((m) => {
+        const priceInfo = monthPricingMap[m.key];
+        const perPerson = priceInfo ? priceInfo.perPerson : 0;
+        members.forEach((mem) => {
+          if (isPaidFn(payments, m.key, mem)) {
+            stats[mem.id].paidMonthsCount += 1;
+            stats[mem.id].paidTotalTL += perPerson;
+          } else {
+            stats[mem.id].unpaidMonthsCount += 1;
+            stats[mem.id].unpaidTotalTL += perPerson;
+            stats[mem.id].unpaidMonthLabels.push({ label: m.label, amount: perPerson });
+          }
+        });
+      });
+
+      return stats;
+    }, [members, months, monthPricingMap, payments]);
+
+    /* ---------- İşlemler ---------- */
+
+    const togglePayment = (monthKey, member) => {
+      mutate((prev) => {
+        const cur = isPaidFn(prev.payments, monthKey, member);
+        return {
+          payments: {
+            ...prev.payments,
+            [monthKey]: { ...(prev.payments[monthKey] || {}), [member.id]: !cur }
+          }
+        };
+      });
+    };
+
+    const markEntireMonthPaid = (monthKey, paidStatus) => {
+      const found = months.find((x) => x.key === monthKey);
+      if (!paidStatus && !window.confirm(`${found?.label || monthKey} için tüm üyeler "Ödemedi" yapılsın mı?`)) return;
+      mutate((prev) => {
+        const row = {};
+        prev.members.forEach((m) => {
+          row[m.id] = paidStatus;
+        });
+        return { payments: { ...prev.payments, [monthKey]: row } };
+      });
+      showToast(`${found?.label || monthKey} tüm üyeler için ${paidStatus ? 'ÖDEDİ' : 'ÖDEMEDİ'} işaretlendi.`);
+    };
+
+    const markAllMonthsForMember = (memberId, paidStatus) => {
+      const mem = members.find((x) => x.id === memberId);
+      if (!paidStatus && !window.confirm(`${mem?.name} için tüm aylar "Ödemedi" yapılsın mı?`)) return;
+      mutate((prev) => {
+        const next = { ...prev.payments };
+        months.forEach((m) => {
+          next[m.key] = { ...(next[m.key] || {}), [memberId]: paidStatus };
+        });
+        return { payments: next };
+      });
+      showToast(`${mem?.name} için tüm aylar ${paidStatus ? 'Ödedi' : 'Ödemedi'} olarak güncellendi.`);
+    };
+
+    const addMemberByName = (rawName, fromCard = false) => {
+      if (members.length >= MAX_MEMBERS) {
+        showToast(`Spotify Aile Paketi en fazla ${MAX_MEMBERS} üye olabilir! (${MAX_MEMBERS}/${MAX_MEMBERS} Dolu)`);
+        return;
+      }
+
+      const trimmed = rawName.trim();
+      if (!trimmed) {
+        if (!fromCard && topInputRef.current) topInputRef.current.focus();
+        showToast('Lütfen eklenecek üyenin adını yazın.');
+        return;
+      }
+
+      const newId = `u_${Date.now()}`;
+      const used = new Set(members.map((m) => m.color));
+      const color = AVATAR_COLORS.find((c) => !used.has(c)) || AVATAR_COLORS[members.length % AVATAR_COLORS.length];
+      const newMember = { id: newId, name: trimmed, isAdmin: false, color };
+      const paidDefault = newMemberDefaultPaid;
+
+      mutate((prev) => {
+        const next = { ...prev.payments };
+        months.forEach((m) => {
+          next[m.key] = { ...(next[m.key] || {}), [newId]: paidDefault };
+        });
+        return { members: [...prev.members, newMember], payments: next };
+      });
+
+      setNewMemberName('');
+      setCardNewMemberName('');
+      showToast(`${trimmed} aile paketine eklendi! (${members.length + 1}/${MAX_MEMBERS} Üye)`);
+    };
+
+    const confirmDeleteMember = () => {
+      if (!memberToDelete) return;
+      const id = memberToDelete.id;
+      mutate((prev) => {
+        const next = {};
+        Object.keys(prev.payments).forEach((k) => {
+          const { [id]: _removed, ...rest } = prev.payments[k];
+          next[k] = rest;
+        });
+        return { members: prev.members.filter((m) => m.id !== id), payments: next };
+      });
+      if (selectedUserHighlight === id) setSelectedUserHighlight(null);
+      showToast(`${memberToDelete.name} listeden çıkarıldı. Kontenjan açıldı!`);
+      setMemberToDelete(null);
+    };
+
+    const saveMemberName = (id) => {
+      const trimmed = editingMemberName.trim();
+      if (!trimmed) return;
+      mutate((prev) => ({ members: prev.members.map((m) => (m.id === id ? { ...m, name: trimmed } : m)) }));
+      setEditingMemberId(null);
+      showToast('Üye ismi güncellendi.');
+    };
+
+    const handleAddZam = (e) => {
+      e.preventDefault();
+      const numericPrice = parseNum(zamPrice);
+      if (isNaN(numericPrice) || numericPrice <= 0) {
+        showToast('Lütfen geçerli bir paket ücreti girin.');
+        return;
+      }
+      const monthObj = months.find((m) => m.key === zamMonthKey);
+      const note = monthObj ? `${monthObj.label} Zammı` : 'Fiyat Güncellemesi';
+
+      mutate((prev) => ({
+        priceHistory: [
+          ...prev.priceHistory.filter((item) => item.startKey !== zamMonthKey),
+          { id: `p_${Date.now()}`, startKey: zamMonthKey, price: numericPrice, note }
+        ]
+      }));
+      setZamPrice('');
+      showToast(`${monthObj?.label || zamMonthKey} döneminden itibaren paket ücreti ${fmt(numericPrice)} ₺ olarak güncellendi!`);
+    };
+
+    const handleDeletePriceRule = (id) => {
+      if (priceHistory.length <= 1) {
+        showToast('Son fiyat kaydı silinemez; yeni fiyat ekleyerek güncelleyebilirsiniz.');
+        return;
+      }
+      mutate((prev) => ({ priceHistory: prev.priceHistory.filter((p) => p.id !== id) }));
+      showToast('Fiyat/zam kaydı kaldırıldı.');
+    };
+
+    const handleAddNextMonth = () => {
+      const last = months[months.length - 1];
+      const key = nextMonthKey(last.key);
+      mutate(() => ({ endKey: key }));
+      const [y, m] = key.split('-').map(Number);
+      showToast(`${MONTH_NAMES[m - 1]} ${y} dönemi tabloya eklendi.`);
+    };
+
+    const handleSaveSingleMonthOverride = (monthKey) => {
+      const val = parseNum(singleMonthPriceInput);
+      if (isNaN(val) || val <= 0) {
+        setEditingSingleMonthKey(null);
+        return;
+      }
+      mutate((prev) => ({ customMonthPrices: { ...prev.customMonthPrices, [monthKey]: val } }));
+      setEditingSingleMonthKey(null);
+      showToast('Seçili ayın paket ücreti güncellendi.');
+    };
+
+    const clearMonthOverride = (monthKey) => {
+      mutate((prev) => {
+        const { [monthKey]: _removed, ...rest } = prev.customMonthPrices;
+        return { customMonthPrices: rest };
+      });
+      showToast('Özel fiyat kaldırıldı, normal fiyata dönüldü.');
+    };
+
+    const copyText = async (text) => {
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(text);
+          return true;
+        }
+      } catch (e) { /* aşağıdaki yedeğe geç */ }
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+      document.body.removeChild(ta);
+      return ok;
+    };
+
+    const copyMemberReminder = async (member) => {
+      const st = memberStats[member.id];
+      if (!st || st.unpaidMonthsCount === 0) {
+        showToast(`${member.name} adlı üyenin hiç borcu yok!`);
+        return;
+      }
+      const monthsText = st.unpaidMonthLabels.map((x) => `${x.label} (${fmt(x.amount)}₺)`).join(', ');
+      const text = `Selam ${member.name} 👋 Spotify Aile Paketi için ödenmemiş ${st.unpaidMonthsCount} aylık faturan bulunuyor:\n📅 Dönemler: ${monthsText}\n💳 Toplam Tutar: ${fmt(st.unpaidTotalTL)} ₺\nMüsait olduğunda gönderebilirsen çok sevinirim! 🎵`;
+      const ok = await copyText(text);
+      showToast(ok ? `${member.name} için WhatsApp borç mesajı panoya kopyalandı!` : 'Kopyalama başarısız oldu.');
+    };
+
+    /* ---------- Görünüm verileri ---------- */
+
+    const displayedMonths = useMemo(() => {
+      let list = [...months];
+      if (selectedYear !== 'ALL') list = list.filter((m) => String(m.year) === String(selectedYear));
+      if (onlyUnpaidFilter) {
+        list = list.filter((m) => members.some((mem) => !isPaidFn(payments, m.key, mem)));
+      }
+      if (!sortAsc) list.reverse();
+      return list;
+    }, [months, selectedYear, onlyUnpaidFilter, sortAsc, payments, members]);
+
+    const availableYears = useMemo(() => Array.from(new Set(months.map((m) => m.year))), [months]);
+
+    const latestMonth = months[months.length - 1];
+    const currentPriceInfo = monthPricingMap[latestMonth.key];
+
+    const totalUnpaidAllMembers = useMemo(
+      () => Object.values(memberStats).reduce((acc, item) => acc + item.unpaidTotalTL, 0),
+      [memberStats]
+    );
+
+    const syncBtn = {
+      off: { Icon: CloudOff, label: 'Eşitleme Kapalı', cls: isLightMode ? 'text-slate-500' : 'text-zinc-400', spin: false },
+      idle: { Icon: Cloud, label: 'Bağlı', cls: 'text-[#1DB954]', spin: false },
+      syncing: { Icon: RefreshCw, label: 'Eşitleniyor', cls: 'text-[#1DB954]', spin: true },
+      ok: { Icon: Cloud, label: 'Eşitlendi', cls: 'text-[#1DB954]', spin: false },
+      error: { Icon: AlertCircle, label: 'Eşitleme Hatası', cls: 'text-rose-500', spin: false }
+    }[syncState];
+
+    return (
+      <div
+        className={`min-h-screen font-sans pb-16 transition-colors duration-300 selection:bg-[#1DB954] selection:text-black ${
+          isLightMode ? 'bg-slate-50 text-slate-900' : 'bg-[#0c0c0c] text-zinc-100'
+        }`}
+      >
+        {toast && (
+          <div className="toast-in fixed bottom-6 left-4 right-4 sm:left-auto sm:right-6 z-[60] flex items-center gap-3 bg-[#1DB954] text-black font-semibold px-5 py-3.5 rounded-2xl shadow-2xl shadow-[#1DB954]/20 border border-white/20">
+            <Check className="w-5 h-5 stroke-[2.5] shrink-0" />
+            <span className="text-sm">{toast}</span>
+          </div>
+        )}
+
+        {showSync && (
+          <SyncModal
+            isLightMode={isLightMode}
+            connected={!!token}
+            syncState={syncState}
+            syncMsg={syncMsg}
+            lastSyncAt={lastSyncAt}
+            onConnect={handleConnect}
+            onDisconnect={handleDisconnect}
+            onSyncNow={syncNow}
+            onExport={handleExport}
+            onImport={handleImport}
+            onClose={() => setShowSync(false)}
+          />
+        )}
+
+        {memberToDelete && (
+          <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+            <div
+              className={`border rounded-2xl max-w-md w-full p-6 shadow-2xl ${
+                isLightMode ? 'bg-white border-slate-200 text-slate-900' : 'bg-zinc-900 border-zinc-800 text-white'
+              }`}
+            >
+              <div className="flex items-center gap-3 text-rose-500 mb-3">
+                <AlertCircle className="w-6 h-6" />
+                <h3 className="text-lg font-bold">Üyeyi Çıkarmak İstiyor Musun?</h3>
+              </div>
+              <p className={`text-sm mb-6 leading-relaxed ${isLightMode ? 'text-slate-600' : 'text-zinc-400'}`}>
+                <span className="font-semibold">{memberToDelete.name}</span> adlı üyeyi paketten çıkardığında kişi başı aylık ücret kalan üyeler arasında yeniden bölünecek ve 1 kişilik yeni üye kontenjanı açılacaktır.
+              </p>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setMemberToDelete(null)}
+                  className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
+                    isLightMode ? 'bg-slate-100 hover:bg-slate-200 text-slate-700' : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200'
+                  }`}
+                >
+                  Vazgeç
+                </button>
+                <button
+                  onClick={confirmDeleteMember}
+                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-sm font-semibold transition"
+                >
+                  Evet, Paketten Çıkar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Üst başlık */}
+        <header
+          className={`border-b transition-colors duration-300 ${
+            isLightMode
+              ? 'border-slate-200 bg-gradient-to-b from-[#1DB954]/15 via-emerald-50/40 to-slate-50'
+              : 'border-zinc-800/80 bg-gradient-to-b from-[#1DB954]/15 via-zinc-900/60 to-[#0c0c0c]'
+          }`}
+        >
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+              <div className="flex items-start sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-2xl bg-[#1DB954] flex items-center justify-center shadow-lg shadow-[#1DB954]/25 shrink-0">
+                    <svg className="w-8 h-8 text-black fill-current" viewBox="0 0 24 24">
+                      <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <h1 className={`text-2xl sm:text-3xl font-extrabold tracking-tight ${isLightMode ? 'text-slate-900' : 'text-white'}`}>
+                        Spotify Aile Paketi Takip
+                      </h1>
+                      <span
+                        className={`text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border ${
+                          isLightMode
+                            ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                            : 'bg-[#1DB954]/20 text-[#1DB954] border-[#1DB954]/30'
+                        }`}
+                      >
+                        Maks {MAX_MEMBERS} Kişilik Paket
+                      </span>
+                    </div>
+                    <p className={`text-sm mt-1 ${isLightMode ? 'text-slate-600' : 'text-zinc-400'}`}>
+                      Aralık 2024'ten itibaren üyeleri (maksimum 6 kişi), zamları ve ödenmeyen ayları takip et.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+                  <button
+                    onClick={() => setShowSync(true)}
+                    className={`flex items-center gap-2 px-3.5 py-2.5 rounded-2xl font-bold text-xs sm:text-sm border transition shadow-sm ${
+                      isLightMode
+                        ? 'bg-white border-slate-200 text-slate-800 hover:bg-slate-100'
+                        : 'bg-zinc-900 border-zinc-700 text-zinc-100 hover:bg-zinc-800'
+                    }`}
+                    title="Cihazlar arası eşitleme ve yedek"
+                  >
+                    <syncBtn.Icon className={`w-4 h-4 ${syncBtn.cls} ${syncBtn.spin ? 'animate-spin' : ''}`} />
+                    <span className="hidden sm:inline">{syncBtn.label}</span>
+                  </button>
+                  <button
+                    onClick={() => setIsLightMode((prev) => !prev)}
+                    className={`flex items-center gap-2 px-3.5 py-2.5 rounded-2xl font-bold text-xs sm:text-sm border transition shadow-sm ${
+                      isLightMode
+                        ? 'bg-white border-slate-200 text-slate-800 hover:bg-slate-100'
+                        : 'bg-zinc-900 border-zinc-700 text-zinc-100 hover:bg-zinc-800'
+                    }`}
+                    title="Temayı Değiştir"
+                  >
+                    {isLightMode ? (
+                      <>
+                        <Moon className="w-4 h-4 text-indigo-600" />
+                        <span className="hidden sm:inline">Koyu Tema</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sun className="w-4 h-4 text-amber-400" />
+                        <span className="hidden sm:inline">Açık Tema</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Özet kartları */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className={`border rounded-2xl px-4 py-3 shadow-sm ${isLightMode ? 'bg-white border-slate-200' : 'bg-zinc-900/90 border-zinc-800'}`}>
+                  <span className={`text-xs block ${isLightMode ? 'text-slate-500' : 'text-zinc-400'}`}>Güncel Paket</span>
+                  <span className={`text-lg font-bold ${isLightMode ? 'text-slate-900' : 'text-white'}`}>
+                    {fmt(currentPriceInfo.totalPrice)} ₺
+                  </span>
+                  <span className={`text-[11px] block ${isLightMode ? 'text-slate-400' : 'text-zinc-500'}`}>Aylık Toplam</span>
+                </div>
+
+                <div className={`border rounded-2xl px-4 py-3 shadow-sm ${isLightMode ? 'bg-white border-slate-200' : 'bg-zinc-900/90 border-zinc-800'}`}>
+                  <span className={`text-xs block ${isLightMode ? 'text-slate-500' : 'text-zinc-400'}`}>
+                    Kişi Başı ({members.length}/{MAX_MEMBERS} Üye)
+                  </span>
+                  <span className={`text-lg font-bold ${isLightMode ? 'text-emerald-600' : 'text-[#1DB954]'}`}>
+                    {fmt(currentPriceInfo.perPerson)} ₺
+                  </span>
+                  <span className={`text-[11px] block ${isLightMode ? 'text-slate-400' : 'text-zinc-500'}`}>Güncel Aylık Pay</span>
+                </div>
+
+                <div className={`border rounded-2xl px-4 py-3 shadow-sm ${isLightMode ? 'bg-white border-slate-200' : 'bg-zinc-900/90 border-zinc-800'}`}>
+                  <span className={`text-xs block ${isLightMode ? 'text-slate-500' : 'text-zinc-400'}`}>Takip Edilen Dönem</span>
+                  <span className={`text-lg font-bold ${isLightMode ? 'text-slate-900' : 'text-white'}`}>{months.length} Ay</span>
+                  <span className={`text-[11px] block ${isLightMode ? 'text-slate-400' : 'text-zinc-500'}`}>
+                    Ara 2024 - {latestMonth.label}
+                  </span>
+                </div>
+
+                <div className={`border rounded-2xl px-4 py-3 shadow-sm ${isLightMode ? 'bg-rose-50/70 border-rose-200' : 'bg-zinc-900/90 border-rose-500/30'}`}>
+                  <span className={`text-xs block ${isLightMode ? 'text-rose-600 font-medium' : 'text-rose-300'}`}>Toplam Bekleyen</span>
+                  <span className={`text-lg font-bold ${isLightMode ? 'text-rose-600' : 'text-rose-400'}`}>
+                    {fmt(totalUnpaidAllMembers)} ₺
+                  </span>
+                  <span className={`text-[11px] block ${isLightMode ? 'text-rose-400' : 'text-zinc-500'}`}>Ödenmemiş Bakiye</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-6 space-y-8">
+          {/* Üyeler */}
+          <section className="space-y-4">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <h2 className={`text-lg sm:text-xl font-bold flex items-center gap-2 ${isLightMode ? 'text-slate-900' : 'text-white'}`}>
+                    <Users className="w-5 h-5 text-[#1DB954]" />
+                    <span>Paket Üyeleri & Ödenmeyen Ay Özeti</span>
+                  </h2>
+                  <span
+                    className={`text-xs font-extrabold px-3 py-1 rounded-full border ${
+                      isMaxReached
+                        ? isLightMode
+                          ? 'bg-amber-100 text-amber-800 border-amber-300'
+                          : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                        : isLightMode
+                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                        : 'bg-[#1DB954]/20 text-[#1DB954] border-[#1DB954]/40'
+                    }`}
+                  >
+                    Kontenjan: {members.length} / {MAX_MEMBERS} Üye {isMaxReached ? '(DOLU)' : `(${MAX_MEMBERS - members.length} Boş Yer)`}
+                  </span>
+                </div>
+                <p className={`text-xs sm:text-sm mt-1 ${isLightMode ? 'text-slate-600' : 'text-zinc-400'}`}>
+                  Spotify Aile Paketi en fazla {MAX_MEMBERS} kişiliktir. Üyelerin kaç ay ödemediğini ve toplam borcunu kartlardan takip edebilirsin.
+                </p>
+              </div>
+
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  addMemberByName(newMemberName, false);
+                }}
+                className="flex flex-wrap items-center gap-2"
+              >
+                {isMaxReached ? (
+                  <div
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-bold ${
+                      isLightMode
+                        ? 'bg-amber-50 border-amber-200 text-amber-800'
+                        : 'bg-amber-950/40 border-amber-500/30 text-amber-300'
+                    }`}
+                  >
+                    <Lock className="w-4 h-4 shrink-0" />
+                    <span>Maksimum 6 üye sınırına ulaşıldı (6/6)</span>
+                  </div>
+                ) : (
+                  <>
+                    <input
+                      ref={topInputRef}
+                      type="text"
+                      value={newMemberName}
+                      onChange={(e) => setNewMemberName(e.target.value)}
+                      placeholder={`Yeni üye adı (${members.length + 1}/${MAX_MEMBERS})...`}
+                      className={`border focus:border-[#1DB954] focus:outline-none text-sm rounded-xl pl-3.5 pr-3 py-2.5 w-48 sm:w-56 ${
+                        isLightMode
+                          ? 'bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 shadow-sm'
+                          : 'bg-zinc-900 border-zinc-700 text-white placeholder:text-zinc-500'
+                      }`}
+                    />
+                    <label
+                      className={`flex items-center gap-1.5 text-xs px-2.5 py-2 rounded-xl border cursor-pointer select-none ${
+                        isLightMode ? 'bg-white border-slate-200 text-slate-700' : 'bg-zinc-900 border-zinc-800 text-zinc-300'
+                      }`}
+                      title="Yeni eklenen üyenin geçmiş ayları ödenmiş olarak mı başlasın?"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={newMemberDefaultPaid}
+                        onChange={(e) => setNewMemberDefaultPaid(e.target.checked)}
+                        className="accent-[#1DB954] rounded"
+                      />
+                      <span>Geçmişi Ödedi Say</span>
+                    </label>
+                    <button
+                      type="submit"
+                      className="flex items-center gap-1.5 bg-[#1DB954] hover:bg-[#1ed760] text-black font-bold text-sm px-4 py-2.5 rounded-xl transition shadow-md shadow-[#1DB954]/10 shrink-0 cursor-pointer"
+                    >
+                      <UserPlus className="w-4 h-4" />
+                      <span>Üye Ekle</span>
+                    </button>
+                  </>
+                )}
+              </form>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {members.map((member) => {
+                const st = memberStats[member.id];
+                const hasDebt = st.unpaidMonthsCount > 0;
+                const isHighlighted = selectedUserHighlight === member.id;
+
+                return (
+                  <div
+                    key={member.id}
+                    onClick={() => setSelectedUserHighlight((prev) => (prev === member.id ? null : member.id))}
+                    className={`cursor-pointer rounded-2xl p-4 transition-all border relative overflow-hidden ${
+                      isHighlighted
+                        ? isLightMode
+                          ? 'bg-emerald-50/70 border-[#1DB954] ring-2 ring-[#1DB954]/30 shadow-md'
+                          : 'bg-zinc-800/90 border-[#1DB954] ring-2 ring-[#1DB954]/30'
+                        : hasDebt
+                        ? isLightMode
+                          ? 'bg-white border-rose-200 hover:border-rose-400 shadow-sm'
+                          : 'bg-zinc-900/90 border-rose-500/30 hover:border-rose-500/60'
+                        : isLightMode
+                        ? 'bg-white border-slate-200 hover:border-slate-300 shadow-sm'
+                        : 'bg-zinc-900/70 border-zinc-800 hover:border-zinc-700'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div
+                          className={`w-11 h-11 rounded-xl bg-gradient-to-br ${member.color} flex items-center justify-center text-white font-extrabold text-base shadow-md shrink-0`}
+                        >
+                          {member.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          {editingMemberId === member.id ? (
+                            <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="text"
+                                value={editingMemberName}
+                                onChange={(e) => setEditingMemberName(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') saveMemberName(member.id);
+                                  if (e.key === 'Escape') setEditingMemberId(null);
+                                }}
+                                className={`border rounded-lg px-2 py-1 text-xs w-28 focus:outline-none focus:border-[#1DB954] ${
+                                  isLightMode ? 'bg-slate-100 border-slate-300 text-slate-900' : 'bg-zinc-950 border-zinc-700 text-white'
+                                }`}
+                                autoFocus
+                              />
+                              <button
+                                onClick={() => saveMemberName(member.id)}
+                                className="p-1 bg-[#1DB954] text-black rounded-lg text-xs font-bold"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5">
+                              <h3 className={`font-bold truncate text-base ${isLightMode ? 'text-slate-900' : 'text-white'}`}>
+                                {member.name}
+                              </h3>
+                              {member.isAdmin && (
+                                <span title="Paket Yöneticisi" className="shrink-0">
+                                  <Crown className="w-4 h-4 text-amber-500" />
+                                </span>
+                              )}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingMemberId(member.id);
+                                  setEditingMemberName(member.name);
+                                }}
+                                className={`p-0.5 ${isLightMode ? 'text-slate-400 hover:text-slate-700' : 'text-zinc-500 hover:text-zinc-300'}`}
+                                title="İsmi Düzenle"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          )}
+                          <span className={`text-xs block ${isLightMode ? 'text-slate-500' : 'text-zinc-400'}`}>
+                            {st.paidMonthsCount} ay ödedi ({fmt(st.paidTotalTL)} ₺)
+                          </span>
+                        </div>
+                      </div>
+
+                      {hasDebt ? (
+                        <div
+                          className={`border px-3 py-1.5 rounded-xl text-right shrink-0 ${
+                            isLightMode
+                              ? 'bg-rose-50 border-rose-200 text-rose-600'
+                              : 'bg-rose-500/15 border-rose-500/40 text-rose-400'
+                          }`}
+                        >
+                          <span className="text-xs font-extrabold block leading-none">{st.unpaidMonthsCount} AY ÖDEMEDİ</span>
+                          <span className={`text-sm font-black block mt-1 ${isLightMode ? 'text-rose-700' : 'text-rose-300'}`}>
+                            {fmt(st.unpaidTotalTL)} ₺
+                          </span>
+                        </div>
+                      ) : (
+                        <div
+                          className={`border px-3 py-1.5 rounded-xl text-right shrink-0 ${
+                            isLightMode
+                              ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                              : 'bg-[#1DB954]/15 border-[#1DB954]/30 text-[#1DB954]'
+                          }`}
+                        >
+                          <span className="text-xs font-extrabold block">BORCU YOK</span>
+                          <span className={`text-[11px] block mt-0.5 ${isLightMode ? 'text-emerald-600' : 'text-emerald-300/80'}`}>
+                            Tamamı Ödendi
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {hasDebt ? (
+                      <div
+                        className={`border rounded-xl p-2.5 mb-3 ${
+                          isLightMode ? 'bg-rose-50/50 border-rose-100' : 'bg-zinc-950/80 border-zinc-800/80'
+                        }`}
+                      >
+                        <span className={`text-[11px] font-semibold block mb-1.5 ${isLightMode ? 'text-slate-600' : 'text-zinc-400'}`}>
+                          Ödenmeyen Aylar ({st.unpaidMonthsCount}):
+                        </span>
+                        <div className="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto pr-1">
+                          {st.unpaidMonthLabels.map((item, i) => (
+                            <span
+                              key={i}
+                              className={`text-[11px] border px-2 py-0.5 rounded-md font-medium ${
+                                isLightMode
+                                  ? 'bg-white border-rose-200 text-rose-700'
+                                  : 'bg-rose-950/60 border-rose-500/30 text-rose-200'
+                              }`}
+                            >
+                              {item.label} ({item.amount.toFixed(1)}₺)
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        className={`border rounded-xl p-2.5 mb-3 flex items-center gap-2 text-xs ${
+                          isLightMode
+                            ? 'bg-slate-50 border-slate-200/80 text-slate-600'
+                            : 'bg-zinc-950/50 border-zinc-800/50 text-zinc-400'
+                        }`}
+                      >
+                        <CheckCircle2 className="w-4 h-4 text-[#1DB954] shrink-0" />
+                        <span>Aralık 2024'ten bu yana tüm faturaları eksiksiz ödendi.</span>
+                      </div>
+                    )}
+
+                    <div
+                      className={`flex items-center justify-between gap-2 pt-1 border-t ${
+                        isLightMode ? 'border-slate-100' : 'border-zinc-800/80'
+                      }`}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {hasDebt && (
+                          <button
+                            onClick={() => copyMemberReminder(member)}
+                            className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg font-medium transition ${
+                              isLightMode ? 'bg-slate-100 hover:bg-slate-200 text-slate-700' : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200'
+                            }`}
+                            title="WhatsApp için borç özeti kopyala"
+                          >
+                            <Copy className="w-3.5 h-3.5 text-[#1DB954]" />
+                            <span>Mesaj</span>
+                          </button>
+                        )}
+
+                        <button
+                          onClick={() => markAllMonthsForMember(member.id, hasDebt)}
+                          className={`text-xs px-2.5 py-1.5 rounded-lg font-semibold transition ${
+                            hasDebt
+                              ? isLightMode
+                                ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800'
+                                : 'bg-[#1DB954]/15 hover:bg-[#1DB954]/25 text-[#1DB954]'
+                              : isLightMode
+                              ? 'bg-rose-100 hover:bg-rose-200 text-rose-800'
+                              : 'bg-rose-500/20 hover:bg-rose-500/30 text-rose-300'
+                          }`}
+                          title={hasDebt ? 'Bu kişinin Aralık 2024’ten bu yana olan tüm borçlarını ödedi yap' : 'Tüm ayları ödemedi olarak sıfırla'}
+                        >
+                          {hasDebt ? '✓ Hepsini Ödedi Yap' : '✕ Hepsini Ödemedi Yap'}
+                        </button>
+                      </div>
+
+                      {members.length > 1 && (
+                        <button
+                          onClick={() => setMemberToDelete(member)}
+                          className={`p-1.5 rounded-lg hover:bg-rose-500/10 transition ${
+                            isLightMode ? 'text-slate-400 hover:text-rose-600' : 'text-zinc-500 hover:text-rose-400'
+                          }`}
+                          title="Üyeyi Paketten Çıkar"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {!isMaxReached && (
+                <div
+                  className={`rounded-2xl p-4 border-2 border-dashed flex flex-col justify-between transition ${
+                    isLightMode
+                      ? 'bg-emerald-50/40 border-emerald-300 hover:border-[#1DB954]'
+                      : 'bg-zinc-900/40 border-zinc-700 hover:border-[#1DB954]/60'
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span
+                        className={`text-xs font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-lg ${
+                          isLightMode ? 'bg-emerald-100 text-emerald-800' : 'bg-[#1DB954]/20 text-[#1DB954]'
+                        }`}
+                      >
+                        Boş Kontenjan ({members.length + 1} / {MAX_MEMBERS})
+                      </span>
+                      <UserPlus className="w-5 h-5 text-[#1DB954]" />
+                    </div>
+                    <h3 className={`font-bold text-base ${isLightMode ? 'text-slate-800' : 'text-zinc-100'}`}>
+                      Yeni Paket Üyesi Ekle
+                    </h3>
+                    <p className={`text-xs mt-1 ${isLightMode ? 'text-slate-500' : 'text-zinc-400'}`}>
+                      Pakete yeni bir arkadaşını eklediğinde aylık ücret otomatik olarak {members.length + 1} kişiye bölünür.
+                    </p>
+                  </div>
+
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      addMemberByName(cardNewMemberName, true);
+                    }}
+                    className="mt-4 space-y-2.5"
+                  >
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={cardNewMemberName}
+                        onChange={(e) => setCardNewMemberName(e.target.value)}
+                        placeholder="Üye adını yazın..."
+                        className={`flex-1 min-w-0 border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#1DB954] ${
+                          isLightMode
+                            ? 'bg-white border-slate-300 text-slate-900 placeholder:text-slate-400'
+                            : 'bg-zinc-950 border-zinc-700 text-white placeholder:text-zinc-500'
+                        }`}
+                      />
+                      <button
+                        type="submit"
+                        className="bg-[#1DB954] hover:bg-[#1ed760] text-black font-bold text-xs px-4 py-2 rounded-xl transition shrink-0 cursor-pointer"
+                      >
+                        + Ekle
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* Fiyat / zam */}
+          <section className={`border rounded-2xl p-5 shadow-sm ${isLightMode ? 'bg-white border-slate-200' : 'bg-zinc-900/80 border-zinc-800'}`}>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              <div className="lg:col-span-7 space-y-3">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <h3 className={`text-base sm:text-lg font-bold flex items-center gap-2 ${isLightMode ? 'text-slate-900' : 'text-white'}`}>
+                    <TrendingUp className="w-5 h-5 text-[#1DB954]" />
+                    <span>Spotify Aylık Ücret & Zam Geçmişi</span>
+                  </h3>
+                  <span className={`text-xs ${isLightMode ? 'text-slate-500' : 'text-zinc-400'}`}>
+                    {members.length} üyeye otomatik bölünür
+                  </span>
+                </div>
+                <p className={`text-xs leading-relaxed ${isLightMode ? 'text-slate-600' : 'text-zinc-400'}`}>
+                  Spotify paket ücretine zam geldiğinde hangi aydan itibaren geçerli olduğunu yan taraftan ekle. O ay ve sonraki ayların kişi başı ücreti otomatik güncellenir.
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                  {sortedPriceHistory.map((item, index) => {
+                    const monthObj = months.find((m) => m.key === item.startKey);
+                    const perUser = item.price / Math.max(members.length, 1);
+                    const isLatest = index === sortedPriceHistory.length - 1;
+
+                    return (
+                      <div
+                        key={item.id}
+                        className={`rounded-xl p-3.5 border relative ${
+                          isLatest
+                            ? isLightMode
+                              ? 'bg-emerald-50/80 border-emerald-300'
+                              : 'bg-[#1DB954]/10 border-[#1DB954]/40'
+                            : isLightMode
+                            ? 'bg-slate-50 border-slate-200'
+                            : 'bg-zinc-950/70 border-zinc-800'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <span className={`text-xs font-bold uppercase tracking-wider ${isLightMode ? 'text-emerald-700' : 'text-[#1DB954]'}`}>
+                            {monthObj ? monthObj.label : item.startKey}'den İtibaren
+                          </span>
+                          {sortedPriceHistory.length > 1 && (
+                            <button
+                              onClick={() => handleDeletePriceRule(item.id)}
+                              className={`transition ${isLightMode ? 'text-slate-400 hover:text-rose-600' : 'text-zinc-500 hover:text-rose-400'}`}
+                              title="Bu zam kaydını sil"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex items-baseline gap-2">
+                          <span className={`text-xl font-extrabold ${isLightMode ? 'text-slate-900' : 'text-white'}`}>
+                            {fmt(item.price)} ₺
+                          </span>
+                          <span className={`text-xs ${isLightMode ? 'text-slate-500' : 'text-zinc-400'}`}>/ ay</span>
+                        </div>
+                        <div
+                          className={`mt-2 pt-2 border-t flex items-center justify-between text-xs ${
+                            isLightMode ? 'border-slate-200' : 'border-zinc-800/80'
+                          }`}
+                        >
+                          <span className={isLightMode ? 'text-slate-500' : 'text-zinc-400'}>Kişi Başı:</span>
+                          <span className={`font-bold ${isLightMode ? 'text-emerald-700' : 'text-emerald-400'}`}>
+                            {fmt(perUser)} ₺
+                          </span>
+                        </div>
+                        {item.note && (
+                          <span className={`text-[11px] block mt-1 truncate ${isLightMode ? 'text-slate-500' : 'text-zinc-500'}`}>
+                            {item.note}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <form
+                onSubmit={handleAddZam}
+                className={`lg:col-span-5 border rounded-xl p-4 space-y-3 ${
+                  isLightMode ? 'bg-slate-50 border-slate-200' : 'bg-zinc-950/90 border-zinc-800'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <h4 className={`text-sm font-bold flex items-center gap-1.5 ${isLightMode ? 'text-slate-900' : 'text-white'}`}>
+                    <Sparkles className="w-4 h-4 text-amber-500" />
+                    <span>Yeni Zam / Fiyat Güncellemesi Ekle</span>
+                  </h4>
+                  <span className={`text-[11px] ${isLightMode ? 'text-slate-500' : 'text-zinc-400'}`}>Otomatik Böler</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className={`block text-xs mb-1 ${isLightMode ? 'text-slate-600' : 'text-zinc-400'}`}>
+                      Geçerli Olduğu Ay (Başlangıç)
+                    </label>
+                    <select
+                      value={zamMonthKey}
+                      onChange={(e) => setZamMonthKey(e.target.value)}
+                      className={`w-full border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#1DB954] ${
+                        isLightMode ? 'bg-white border-slate-300 text-slate-900' : 'bg-zinc-900 border-zinc-700 text-white'
+                      }`}
+                    >
+                      {months.map((m) => (
+                        <option key={m.key} value={m.key}>
+                          {m.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className={`block text-xs mb-1 ${isLightMode ? 'text-slate-600' : 'text-zinc-400'}`}>
+                      Yeni Paket Ücreti (Toplam ₺)
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={zamPrice}
+                      onChange={(e) => setZamPrice(e.target.value)}
+                      placeholder="Örn: 199,99"
+                      className={`w-full border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#1DB954] ${
+                        isLightMode ? 'bg-white border-slate-300 text-slate-900' : 'bg-zinc-900 border-zinc-700 text-white'
+                      }`}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
+                  <div className={`text-xs ${isLightMode ? 'text-slate-600' : 'text-zinc-400'}`}>
+                    {zamPrice && !isNaN(parseNum(zamPrice)) ? (
+                      <span>
+                        Kişi başı yeni tutar:{' '}
+                        <strong className={isLightMode ? 'text-emerald-700' : 'text-[#1DB954]'}>
+                          {fmt(parseNum(zamPrice) / Math.max(members.length, 1))} ₺
+                        </strong>{' '}
+                        ({members.length} üye)
+                      </span>
+                    ) : (
+                      <span>Fiyat girildiğinde kişi başı pay hesaplanır.</span>
+                    )}
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs sm:text-sm px-4 py-2.5 rounded-xl transition shrink-0 cursor-pointer"
+                  >
+                    Zammı Uygula
+                  </button>
+                </div>
+              </form>
+            </div>
+          </section>
+
+          {/* Ödeme tablosu */}
+          <section className="space-y-4">
+            <div
+              className={`flex flex-col md:flex-row md:items-center justify-between gap-4 border rounded-2xl p-4 shadow-sm ${
+                isLightMode ? 'bg-white border-slate-200' : 'bg-zinc-900/90 border-zinc-800'
+              }`}
+            >
+              <div>
+                <h2 className={`text-lg font-bold flex items-center gap-2 ${isLightMode ? 'text-slate-900' : 'text-white'}`}>
+                  <Receipt className="w-5 h-5 text-[#1DB954]" />
+                  <span>Geçmiş Faturalar & Ödeme Tablosu (Aralık 2024'ten İtibaren)</span>
+                </h2>
+                <p className={`text-xs mt-0.5 ${isLightMode ? 'text-slate-600' : 'text-zinc-400'}`}>
+                  Üyeler üst sütunlarda yer alır; altlarındaki kutulara tıklayarak{' '}
+                  <strong className={isLightMode ? 'text-emerald-700' : 'text-[#1DB954]'}>Ödedi</strong> veya{' '}
+                  <strong className={isLightMode ? 'text-rose-600' : 'text-rose-400'}>Ödemedi</strong> olarak işaretleyebilirsin.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2.5">
+                <div
+                  className={`flex items-center border rounded-xl p-1 ${
+                    isLightMode ? 'bg-slate-100 border-slate-200' : 'bg-zinc-950 border-zinc-800'
+                  }`}
+                >
+                  <button
+                    onClick={() => setSelectedYear('ALL')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                      selectedYear === 'ALL'
+                        ? 'bg-[#1DB954] text-black shadow-sm'
+                        : isLightMode
+                        ? 'text-slate-600 hover:text-slate-900'
+                        : 'text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    Tümü ({months.length})
+                  </button>
+                  {availableYears.map((yr) => (
+                    <button
+                      key={yr}
+                      onClick={() => setSelectedYear(String(yr))}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                        String(selectedYear) === String(yr)
+                          ? 'bg-[#1DB954] text-black shadow-sm'
+                          : isLightMode
+                          ? 'text-slate-600 hover:text-slate-900'
+                          : 'text-zinc-400 hover:text-white'
+                      }`}
+                    >
+                      {yr}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => setOnlyUnpaidFilter((prev) => !prev)}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition ${
+                    onlyUnpaidFilter
+                      ? isLightMode
+                        ? 'bg-rose-50 border-rose-400 text-rose-700'
+                        : 'bg-rose-500/20 border-rose-500 text-rose-300'
+                      : isLightMode
+                      ? 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                      : 'bg-zinc-950 border-zinc-800 text-zinc-300 hover:border-zinc-700'
+                  }`}
+                >
+                  <Filter className="w-3.5 h-3.5" />
+                  <span>Sadece Eksik Olan Aylar</span>
+                </button>
+
+                <button
+                  onClick={() => setSortAsc((prev) => !prev)}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition ${
+                    isLightMode
+                      ? 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                      : 'bg-zinc-950 border-zinc-800 text-zinc-300 hover:border-zinc-700'
+                  }`}
+                  title="Sıralamayı Değiştir"
+                >
+                  <ArrowUpDown className="w-3.5 h-3.5 text-[#1DB954]" />
+                  <span>{sortAsc ? 'Aralık 2024 → Günümüz' : 'Günümüz → Aralık 2024'}</span>
+                </button>
+
+                <button
+                  onClick={handleAddNextMonth}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-[#1DB954] hover:bg-[#1ed760] text-black transition shadow-sm"
+                >
+                  <Plus className="w-4 h-4 stroke-[2.5]" />
+                  <span>Yeni Ay Ekle</span>
+                </button>
+              </div>
+            </div>
+
+            <div
+              className={`border rounded-2xl overflow-hidden shadow-xl ${
+                isLightMode ? 'bg-white border-slate-200' : 'bg-zinc-900/90 border-zinc-800'
+              }`}
+            >
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr
+                      className={`border-b text-xs uppercase tracking-wider ${
+                        isLightMode
+                          ? 'bg-slate-100 border-slate-200 text-slate-600'
+                          : 'bg-zinc-950/90 border-zinc-800 text-zinc-400'
+                      }`}
+                    >
+                      <th
+                        className={`py-4 px-4 font-bold sticky left-0 z-20 min-w-[170px] border-r ${
+                          isLightMode
+                            ? 'bg-slate-100 border-slate-200 text-slate-800'
+                            : 'bg-zinc-950 border-zinc-800/80 text-zinc-300'
+                        }`}
+                      >
+                        Fatura Dönemi
+                      </th>
+                      <th className={`py-4 px-4 font-bold min-w-[155px] border-r ${isLightMode ? 'border-slate-200' : 'border-zinc-800/80'}`}>
+                        Paket & Kişi Başı
+                      </th>
+
+                      {members.map((member) => {
+                        const st = memberStats[member.id];
+                        const unpaidCount = st.unpaidMonthsCount;
+                        const hasDebt = unpaidCount > 0;
+                        const isHighlighted = selectedUserHighlight === member.id;
+
+                        return (
+                          <th
+                            key={member.id}
+                            className={`py-3.5 px-3 text-center min-w-[135px] border-r ${
+                              isLightMode ? 'border-slate-200/70' : 'border-zinc-800/50'
+                            } ${
+                              isHighlighted
+                                ? isLightMode
+                                  ? 'bg-emerald-100/70'
+                                  : 'bg-[#1DB954]/15'
+                                : isLightMode
+                                ? 'hover:bg-slate-200/60'
+                                : 'hover:bg-zinc-900'
+                            }`}
+                          >
+                            <div className="flex flex-col items-center gap-1.5">
+                              <div
+                                className="flex items-center gap-1.5 cursor-pointer"
+                                onClick={() => setSelectedUserHighlight((prev) => (prev === member.id ? null : member.id))}
+                              >
+                                <span
+                                  className={`w-6 h-6 rounded-full bg-gradient-to-br ${member.color} text-white text-xs font-extrabold flex items-center justify-center shadow-sm`}
+                                >
+                                  {member.name.charAt(0).toUpperCase()}
+                                </span>
+                                <span className={`font-bold text-xs truncate max-w-[90px] ${isLightMode ? 'text-slate-900' : 'text-white'}`}>
+                                  {member.name}
+                                </span>
+                              </div>
+
+                              {hasDebt ? (
+                                <span
+                                  className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border normal-case ${
+                                    isLightMode
+                                      ? 'bg-rose-100 text-rose-700 border-rose-200'
+                                      : 'bg-rose-500/20 text-rose-400 border-rose-500/30'
+                                  }`}
+                                >
+                                  {unpaidCount} ay ödemedi ({st.unpaidTotalTL.toFixed(0)}₺)
+                                </span>
+                              ) : (
+                                <span
+                                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full normal-case ${
+                                    isLightMode ? 'bg-emerald-100 text-emerald-800' : 'bg-[#1DB954]/15 text-[#1DB954]'
+                                  }`}
+                                >
+                                  Tamamı Ödendi
+                                </span>
+                              )}
+
+                              <button
+                                onClick={() => markAllMonthsForMember(member.id, hasDebt)}
+                                className={`text-[10px] font-bold px-2 py-1 rounded-md transition underline decoration-dotted cursor-pointer normal-case ${
+                                  hasDebt
+                                    ? isLightMode
+                                      ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                                      : 'bg-[#1DB954]/20 text-[#1DB954] hover:bg-[#1DB954]/30'
+                                    : isLightMode
+                                    ? 'bg-rose-100 text-rose-800 hover:bg-rose-200'
+                                    : 'bg-rose-500/20 text-rose-300 hover:bg-rose-500/30'
+                                }`}
+                                title={hasDebt ? 'Bu kullanıcının tüm geçmiş aylarını ödedi yap' : 'Tüm aylarını ödemedi yap'}
+                              >
+                                {hasDebt ? '✓ Hepsini Ödedi Yap' : '✕ Hepsini Sıfırla'}
+                              </button>
+                            </div>
+                          </th>
+                        );
+                      })}
+
+                      <th className="py-4 px-4 text-center font-bold min-w-[130px]">Aksiyonlar</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {displayedMonths.length === 0 && (
+                      <tr>
+                        <td
+                          colSpan={members.length + 3}
+                          className={`py-10 text-center text-sm ${isLightMode ? 'text-slate-500' : 'text-zinc-400'}`}
+                        >
+                          Gösterilecek ay yok. Harika, hiç eksik ödeme görünmüyor! 🎉
+                        </td>
+                      </tr>
+                    )}
+                    {displayedMonths.map((m) => {
+                      const priceInfo = monthPricingMap[m.key];
+                      const isEditingThisMonth = editingSingleMonthKey === m.key;
+                      const allPaidThisMonth = members.every((mem) => isPaidFn(payments, m.key, mem));
+
+                      return (
+                        <tr
+                          key={m.key}
+                          className={`border-b transition-colors ${
+                            isLightMode
+                              ? 'border-slate-100 hover:bg-slate-50/80'
+                              : 'border-zinc-800/80 hover:bg-zinc-800/40'
+                          }`}
+                        >
+                          <td
+                            className={`py-3.5 px-4 sticky left-0 z-10 border-r font-medium text-xs sm:text-sm ${
+                              isLightMode
+                                ? 'bg-white border-slate-200 text-slate-800'
+                                : 'bg-zinc-900 border-zinc-800/80 text-zinc-200'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div>
+                                <span className="font-bold block">{m.label}</span>
+                                {priceInfo.isZamMonth && (
+                                  <span className="text-[10px] font-semibold bg-amber-500/20 text-amber-500 px-1.5 py-0.5 rounded mt-0.5 inline-block">
+                                    {priceInfo.zamNote || 'Zam Dönemi'}
+                                  </span>
+                                )}
+                              </div>
+                              <span
+                                className={`text-[10px] px-2 py-1 rounded font-bold whitespace-nowrap ${
+                                  allPaidThisMonth
+                                    ? isLightMode
+                                      ? 'bg-emerald-100 text-emerald-800'
+                                      : 'bg-[#1DB954]/20 text-[#1DB954]'
+                                    : isLightMode
+                                    ? 'bg-rose-100 text-rose-700'
+                                    : 'bg-rose-500/20 text-rose-400'
+                                }`}
+                              >
+                                {allPaidThisMonth ? 'Tamamı Ödendi' : 'Eksik Var'}
+                              </span>
+                            </div>
+                          </td>
+
+                          <td
+                            className={`py-3.5 px-4 border-r text-xs ${
+                              isLightMode ? 'border-slate-200 text-slate-600' : 'border-zinc-800/80 text-zinc-400'
+                            }`}
+                          >
+                            {isEditingThisMonth ? (
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
+                                  value={singleMonthPriceInput}
+                                  onChange={(e) => setSingleMonthPriceInput(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleSaveSingleMonthOverride(m.key);
+                                    if (e.key === 'Escape') setEditingSingleMonthKey(null);
+                                  }}
+                                  className={`w-20 border rounded px-1.5 py-1 text-xs focus:outline-none focus:border-[#1DB954] ${
+                                    isLightMode ? 'bg-slate-50 border-slate-300 text-slate-900' : 'bg-zinc-950 border-zinc-700 text-white'
+                                  }`}
+                                  autoFocus
+                                />
+                                <button
+                                  onClick={() => handleSaveSingleMonthOverride(m.key)}
+                                  className="px-2 py-1 bg-[#1DB954] text-black font-bold rounded text-xs"
+                                >
+                                  ✓
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-between gap-1">
+                                <div>
+                                  <span className={`font-bold block ${isLightMode ? 'text-slate-900' : 'text-white'}`}>
+                                    {fmt(priceInfo.perPerson)} ₺ /kişi
+                                  </span>
+                                  <span className="text-[11px] opacity-75">(Toplam: {fmt(priceInfo.totalPrice)} ₺)</span>
+                                </div>
+                                <div className="flex items-center">
+                                  {priceInfo.isCustom && (
+                                    <button
+                                      onClick={() => clearMonthOverride(m.key)}
+                                      className={`p-1 rounded transition ${isLightMode ? 'hover:bg-slate-200 text-amber-600' : 'hover:bg-zinc-800 text-amber-400'}`}
+                                      title="Özel fiyatı kaldır"
+                                    >
+                                      <RotateCcw className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={() => {
+                                      setEditingSingleMonthKey(m.key);
+                                      setSingleMonthPriceInput(String(priceInfo.totalPrice));
+                                    }}
+                                    className={`p-1 rounded transition ${isLightMode ? 'hover:bg-slate-200 text-slate-400' : 'hover:bg-zinc-800 text-zinc-500'}`}
+                                    title="Bu aya özel fiyat gir"
+                                  >
+                                    <Edit3 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </td>
+
+                          {members.map((member) => {
+                            const isPaid = isPaidFn(payments, m.key, member);
+                            const isHighlighted = selectedUserHighlight === member.id;
+
+                            return (
+                              <td
+                                key={member.id}
+                                className={`py-3.5 px-3 text-center border-r ${
+                                  isLightMode ? 'border-slate-200/70' : 'border-zinc-800/50'
+                                } ${isHighlighted ? (isLightMode ? 'bg-emerald-50/60' : 'bg-[#1DB954]/10') : ''}`}
+                              >
+                                <button
+                                  onClick={() => togglePayment(m.key, member)}
+                                  className={`w-full py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-sm cursor-pointer ${
+                                    isPaid
+                                      ? isLightMode
+                                        ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-300'
+                                        : 'bg-[#1DB954]/20 hover:bg-[#1DB954]/30 text-[#1DB954] border border-[#1DB954]/40'
+                                      : isLightMode
+                                      ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
+                                      : 'bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30'
+                                  }`}
+                                  title={`${member.name} için ${m.label} ödeme durumu. Değiştirmek için tıkla.`}
+                                >
+                                  {isPaid ? (
+                                    <>
+                                      <CheckCircle2 className={`w-4 h-4 shrink-0 ${isLightMode ? 'text-emerald-600' : 'text-[#1DB954]'}`} />
+                                      <span>Ödedi</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <XCircle className="w-4 h-4 text-rose-500 shrink-0" />
+                                      <span>Ödemedi</span>
+                                    </>
+                                  )}
+                                </button>
+                              </td>
+                            );
+                          })}
+
+                          <td className="py-3.5 px-4 text-center">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <button
+                                onClick={() => markEntireMonthPaid(m.key, true)}
+                                className={`p-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap ${
+                                  isLightMode
+                                    ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800'
+                                    : 'bg-[#1DB954]/20 hover:bg-[#1DB954]/30 text-[#1DB954]'
+                                }`}
+                                title="Bu ayın tüm üyelerini Ödedi olarak işaretle"
+                              >
+                                ✓ Tümü
+                              </button>
+                              <button
+                                onClick={() => markEntireMonthPaid(m.key, false)}
+                                className={`p-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap ${
+                                  isLightMode
+                                    ? 'bg-rose-100 hover:bg-rose-200 text-rose-800'
+                                    : 'bg-rose-500/20 hover:bg-rose-500/30 text-rose-300'
+                                }`}
+                                title="Bu ayın tüm üyelerini Ödemedi olarak işaretle"
+                              >
+                                ✕ Sıfırla
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+    );
+  }
+
+  /* =====================================================================
+   * 4) BASLAT
+   * ===================================================================== */
+  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+
+  </script>
+</body>
+</html>
