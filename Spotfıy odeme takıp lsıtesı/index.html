@@ -996,11 +996,11 @@
       let list = [...months];
       if (selectedYear !== 'ALL') list = list.filter((m) => String(m.year) === String(selectedYear));
       if (onlyUnpaidFilter) {
-        list = list.filter((m) => members.some((mem) => !isPaidFn(payments, m.key, mem)));
+        list = list.filter((m) => members.some((mem) => isMemberActive(mem, m.key) && !isPaidFn(payments, m.key, mem)));
       }
       if (!sortAsc) list.reverse();
       return list;
-    }, [months, selectedYear, onlyUnpaidFilter, sortAsc, payments, members]);
+    }, [months, selectedYear, onlyUnpaidFilter, sortAsc, payments, members, membershipOverrides]);
 
     const availableYears = useMemo(() => Array.from(new Set(months.map((m) => m.year))), [months]);
 
@@ -1957,7 +1957,7 @@
                     {displayedMonths.map((m) => {
                       const priceInfo = monthPricingMap[m.key];
                       const isEditingThisMonth = editingSingleMonthKey === m.key;
-                      const allPaidThisMonth = members.every((mem) => isPaidFn(payments, m.key, mem));
+                      const allPaidThisMonth = members.every((mem) => !isMemberActive(mem, m.key) || isPaidFn(payments, m.key, mem));
 
                       return (
                         <tr
