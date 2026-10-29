@@ -8,11 +8,15 @@
   <title>Spotify Aile Paketi Takip</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='12' fill='%231DB954'/%3E%3C/svg%3E" />
 
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com/3.4.17" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <!-- Tailwind CSS; alternatif CDN bağlantısı -->
+  <script src="https://cdn.tailwindcss.com/3.4.17" referrerpolicy="no-referrer" onerror="var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4';document.head.appendChild(s)"></script>
 
   <style>
     body { margin: 0; background: #f8fafc; }
+    /* Harici stil yüklenemese bile SVG ikonların tüm ekranı kaplamasını önle. */
+    svg { width: 1.5rem; height: 1.5rem; max-width: 100%; flex-shrink: 0; }
+    svg[width] { width: attr(width px, 24px); }
+    svg[height] { height: attr(height px, 24px); }
     @keyframes toastIn {
       from { opacity: 0; transform: translateY(12px); }
       to   { opacity: 1; transform: translateY(0); }
@@ -24,9 +28,9 @@
   <div id="root"></div>
 
   <!-- React + Babel (JSX'i tarayıcıda derler) -->
-  <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <script src="https://unpkg.com/@babel/standalone@7.26.4/babel.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" referrerpolicy="no-referrer"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" referrerpolicy="no-referrer"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.26.4/babel.min.js" referrerpolicy="no-referrer"></script>
 
   <script type="text/babel" data-presets="react">
 
