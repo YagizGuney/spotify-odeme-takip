@@ -724,7 +724,9 @@
       const result = {};
 
       months.forEach((m) => {
-        const memberCount = Math.max(members.filter((member) => isMemberActive(member, m.key)).length, 1);
+        const activeMemberCount = members.filter((member) => isMemberActive(member, m.key)).length;
+        // Eski aylarda aktif üye yoksa toplam üye sayısını kullan; paketin tamamını tek kişiye yükleme.
+        const memberCount = activeMemberCount || Math.max(members.length, 1);
         if (customMonthPrices[m.key] !== undefined) {
           const total = Number(customMonthPrices[m.key]);
           result[m.key] = {
