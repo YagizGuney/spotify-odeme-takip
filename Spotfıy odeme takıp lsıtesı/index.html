@@ -192,7 +192,7 @@
   const MAX_MEMBERS = 6;
   const START_KEY = '2024-12';
   const memberStartKey = (member) => member.startKey || START_KEY;
-  const memberIsActive = (member, monthKey) => memberStartKey(member) <= monthKey;
+  const memberIsActive = (member, monthKey, overrides = {}) => { const override = overrides[monthKey]?.[member.id]; return typeof override === 'boolean' ? override : memberStartKey(member) <= monthKey; };
 
   const MONTH_NAMES = [
     'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
@@ -300,6 +300,7 @@
       members: INITIAL_MEMBERS,
       priceHistory: INITIAL_PRICE_HISTORY,
       customMonthPrices: {},
+      membershipOverrides: {},
       endKey,
       payments: buildInitialPayments(buildMonths(endKey), INITIAL_MEMBERS),
       updatedAt: 0
@@ -319,6 +320,7 @@
     members: d.members,
     priceHistory: d.priceHistory,
     customMonthPrices: d.customMonthPrices && typeof d.customMonthPrices === 'object' ? d.customMonthPrices : {},
+    membershipOverrides: d.membershipOverrides && typeof d.membershipOverrides === 'object' ? d.membershipOverrides : {},
     endKey: typeof d.endKey === 'string' ? d.endKey : '2026-10',
     payments: d.payments,
     updatedAt: Number(d.updatedAt) || 0
@@ -460,6 +462,8 @@
     const [isLightMode, setIsLightMode] = useState(() => lsGet('spt_theme') !== 'dark');
     const [data, setData] = useState(loadLocal);
     const { members, priceHistory, customMonthPrices, payments } = data;
+    const membershipOverrides = data.membershipOverrides || {};
+    const isActive = (member, monthKey) => memberIsActive(member, monthKey, membershipOverrides);
 
     const months = useMemo(() => {
       const cur = currentMonthKey();
@@ -720,7 +724,7 @@
       const result = {};
 
       months.forEach((m) => {
-        const memberCount = Math.max(members.filter((member) => memberIsActive(member, m.key)).length, 1);
+        const memberCount = Math.max(members.filter((member) => isActive(member, m.key)).length, 1);
         if (customMonthPrices[m.key] !== undefined) {
           const total = Number(customMonthPrices[m.key]);
           result[m.key] = {
@@ -771,7 +775,7 @@
         const priceInfo = monthPricingMap[m.key];
         const perPerson = priceInfo ? priceInfo.perPerson : 0;
         members.forEach((mem) => {
-          if (!memberIsActive(mem, m.key)) return;
+          if (!isActive(mem, m.key)) return;
           if (isPaidFn(payments, m.key, mem)) {
             stats[mem.id].paidMonthsCount += 1;
             stats[mem.id].paidTotalTL += perPerson;
@@ -788,8 +792,14 @@
 
     /* ---------- İşlemler ---------- */
 
+    const toggleMembershipMonth = (monthKey, member) => {
+      const wasActive = isActive(member, monthKey);
+      mutate((prev) => ({ membershipOverrides: { ...(prev.membershipOverrides || {}), [monthKey]: { ...((prev.membershipOverrides || {})[monthKey] || {}), [member.id]: !wasActive } } }));
+      showToast(`${member.name}: ${monthKey} ${wasActive ? 'katılmadı' : 'katıldı'} olarak işaretlendi.`);
+    };
+
     const togglePayment = (monthKey, member) => {
-      if (!memberIsActive(member, monthKey)) return;
+      if (!isActive(member, monthKey)) return;
       mutate((prev) => {
         const cur = isPaidFn(prev.payments, monthKey, member);
         return {
@@ -806,7 +816,7 @@
       if (!paidStatus && !window.confirm(`${found?.label || monthKey} için tüm üyeler "Ödemedi" yapılsın mı?`)) return;
       mutate((prev) => {
         const row = {};
-        prev.members.filter((m) => memberIsActive(m, monthKey)).forEach((m) => {
+        prev.members.filter((m) => isActive(m, monthKey)).forEach((m) => {
           row[m.id] = paidStatus;
         });
         return { payments: { ...prev.payments, [monthKey]: row } };
@@ -819,7 +829,7 @@
       if (!paidStatus && !window.confirm(`${mem?.name} için tüm aylar "Ödemedi" yapılsın mı?`)) return;
       mutate((prev) => {
         const next = { ...prev.payments };
-        months.filter((m) => memberIsActive(mem, m.key)).forEach((m) => {
+        months.filter((m) => isActive(mem, m.key)).forEach((m) => {
           next[m.key] = { ...(next[m.key] || {}), [memberId]: paidStatus };
         });
         return { payments: next };
@@ -993,6 +1003,9 @@
 
     const latestMonth = months[months.length - 1];
     const currentPriceInfo = monthPricingMap[latestMonth.key];
+
+    const totalPaidAllMembers = useMemo(() => Object.values(memberStats).reduce((sum, item) => sum + item.paidTotalTL, 0), [memberStats]);
+    const totalPackageCost = useMemo(() => months.reduce((sum, m) => sum + (monthPricingMap[m.key]?.totalPrice || 0), 0), [months, monthPricingMap]);
 
     const totalUnpaidAllMembers = useMemo(
       () => Object.values(memberStats).reduce((acc, item) => acc + item.unpaidTotalTL, 0),
@@ -1186,6 +1199,16 @@
         </header>
 
         <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-6 space-y-8">
+          {/* Toplam ödeme özeti */}
+          <section className={`rounded-2xl border p-5 shadow-sm ${isLightMode ? 'bg-white border-slate-200' : 'bg-zinc-900 border-zinc-800'}`}>
+            <h2 className="font-bold text-lg mb-3 flex items-center gap-2"><Receipt className="w-5 h-5 text-[#1DB954]" /> Toplam Ödeme Özeti</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className={`rounded-xl p-4 ${isLightMode ? 'bg-emerald-50' : 'bg-emerald-950/30'}`}><p className="text-xs opacity-70">Üyelerin toplam ödediği</p><p className="text-2xl font-extrabold text-[#1DB954]">{fmt(totalPaidAllMembers)} ₺</p></div>
+              <div className={`rounded-xl p-4 ${isLightMode ? 'bg-slate-100' : 'bg-zinc-800'}`}><p className="text-xs opacity-70">Toplam paket faturası</p><p className="text-2xl font-extrabold">{fmt(totalPackageCost)} ₺</p></div>
+              <div className={`rounded-xl p-4 ${isLightMode ? 'bg-rose-50' : 'bg-rose-950/30'}`}><p className="text-xs opacity-70">Üyelerin kalan borcu</p><p className="text-2xl font-extrabold text-rose-500">{fmt(totalUnpaidAllMembers)} ₺</p></div>
+            </div>
+            <p className="text-xs opacity-60 mt-3">Ödenen tutarlar tablodaki Ödedi işaretlerinden hesaplanır; banka transferi doğrulaması değildir. Başlangıç ayı veya katılım değişince kişi başı pay yeniden hesaplanır.</p>
+          </section>
           {/* Üyeler */}
           <section className="space-y-4">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -1380,7 +1403,7 @@
                             />
                           </span>
                           <span className={`text-xs block ${isLightMode ? 'text-slate-500' : 'text-zinc-400'}`}>
-                            {st.paidMonthsCount} ay ödedi ({fmt(st.paidTotalTL)} ₺)
+                            Toplam ödedi: {fmt(st.paidTotalTL)} ₺ · {st.paidMonthsCount} ay
                           </span>
                         </div>
                       </div>
@@ -2037,7 +2060,7 @@
 
                           {members.map((member) => {
                             const isPaid = isPaidFn(payments, m.key, member);
-                            const isActive = memberIsActive(member, m.key);
+                            const isActive = isActive(member, m.key);
                             const isHighlighted = selectedUserHighlight === member.id;
 
                             return (
@@ -2048,7 +2071,7 @@
                                 } ${isHighlighted ? (isLightMode ? 'bg-emerald-50/60' : 'bg-[#1DB954]/10') : ''}`}
                               >
                                 {!isActive ? (
-                                  <span className={`text-xs ${isLightMode ? 'text-slate-400' : 'text-zinc-600'}`}>Katılmamıştı</span>
+                                  <button onClick={() => toggleMembershipMonth(m.key, member)} title={`${member.name} bu ay katıldı olarak işaretle`} className={`text-xs underline underline-offset-2 hover:text-[#1DB954] ${isLightMode ? 'text-slate-500' : 'text-zinc-500'}`}>Katılmamıştı · Katıldı yap</button>
                                 ) : <button
                                   onClick={() => togglePayment(m.key, member)}
                                   className={`w-full py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-sm cursor-pointer ${
