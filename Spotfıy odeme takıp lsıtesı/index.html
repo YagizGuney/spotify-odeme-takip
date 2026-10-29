@@ -220,6 +220,30 @@
     try { localStorage.removeItem(k); } catch (e) { /* yok say */ }
   };
 
+  // GitHub erişim anahtarını kalıcı tarayıcı verilerinden kaldır.
+  // Mevcut oturumun bozulmaması için eski anahtarı bir kez oturuma taşı.
+  const tokenGet = () => {
+    try {
+      const existing = sessionStorage.getItem('spt_token');
+      const legacy = localStorage.getItem('spt_token');
+      if (legacy) {
+        if (!existing) sessionStorage.setItem('spt_token', legacy);
+        localStorage.removeItem('spt_token');
+      }
+      return sessionStorage.getItem('spt_token') || '';
+    } catch (e) { return ''; }
+  };
+  const tokenSet = (value) => {
+    try {
+      sessionStorage.setItem('spt_token', value);
+      localStorage.removeItem('spt_token');
+    } catch (e) { /* oturum depolaması kullanılamıyor */ }
+  };
+  const tokenDel = () => {
+    try { sessionStorage.removeItem('spt_token'); } catch (e) {}
+    lsDel('spt_token');
+  };
+
   const monthKeyOf = (y, m) => `${y}-${String(m + 1).padStart(2, '0')}`;
 
   const currentMonthKey = () => {
@@ -515,9 +539,9 @@
 
     /* ---------- Eşitleme ---------- */
 
-    const [token, setToken] = useState(() => lsGet('spt_token') || '');
+    const [token, setToken] = useState(() => tokenGet());
     const [gistId, setGistId] = useState(() => lsGet('spt_gist') || '');
-    const [syncState, setSyncState] = useState(() => (lsGet('spt_token') ? 'idle' : 'off'));
+    const [syncState, setSyncState] = useState(() => (tokenGet() ? 'idle' : 'off'));
     const [syncMsg, setSyncMsg] = useState('');
     const [lastSyncAt, setLastSyncAt] = useState(null);
 
@@ -663,7 +687,7 @@
         showToast('Lütfen GitHub token\'ını yapıştır.');
         return;
       }
-      lsSet('spt_token', tk);
+      tokenSet(tk);
       tokenRef.current = tk;
       if (tk === token) {
         syncNow();
@@ -674,7 +698,7 @@
     };
 
     const handleDisconnect = () => {
-      lsDel('spt_token');
+      tokenDel();
       lsDel('spt_gist');
       tokenRef.current = '';
       setToken('');
