@@ -725,13 +725,13 @@
 
       months.forEach((m) => {
         const activeMemberCount = members.filter((member) => isMemberActive(member, m.key)).length;
-        // Eski aylarda aktif üye yoksa toplam üye sayısını kullan; paketin tamamını tek kişiye yükleme.
-        const memberCount = activeMemberCount || Math.max(members.length, 1);
+        // Ücret yalnızca o ay katılan kişiler arasında bölünür. Katılan yoksa kişi başı borç oluşmaz.
+        const memberCount = activeMemberCount;
         if (customMonthPrices[m.key] !== undefined) {
           const total = Number(customMonthPrices[m.key]);
           result[m.key] = {
             totalPrice: total,
-            perPerson: total / memberCount,
+            perPerson: memberCount > 0 ? total / memberCount : 0,
             isZamMonth: true,
             isCustom: true,
             zamNote: 'Özel Ay Fiyatı'
@@ -751,7 +751,7 @@
 
         result[m.key] = {
           totalPrice: activeRule.price,
-          perPerson: activeRule.price / memberCount,
+          perPerson: memberCount > 0 ? activeRule.price / memberCount : 0,
           isZamMonth: isExactZamStart,
           isCustom: false,
           zamNote: activeRule.note
@@ -759,7 +759,7 @@
       });
 
       return result;
-    }, [months, sortedPriceHistory, customMonthPrices, members]);
+    }, [months, sortedPriceHistory, customMonthPrices, members, membershipOverrides]);
 
     const memberStats = useMemo(() => {
       const stats = {};
@@ -790,14 +790,15 @@
       });
 
       return stats;
-    }, [members, months, monthPricingMap, payments]);
+    }, [members, months, monthPricingMap, payments, membershipOverrides]);
 
     /* ---------- İşlemler ---------- */
 
     const toggleMembershipMonth = (monthKey, member) => {
       const wasActive = isMemberActive(member, monthKey);
+      if (wasActive && !window.confirm(`${member.name} ${monthKey} döneminde katılmadı olarak işaretlensin mi? O ayın kişi başı ücreti yeniden hesaplanacak; ödeme kaydı silinmeyecek.`)) return;
       mutate((prev) => ({ membershipOverrides: { ...(prev.membershipOverrides || {}), [monthKey]: { ...((prev.membershipOverrides || {})[monthKey] || {}), [member.id]: !wasActive } } }));
-      showToast(`${member.name}: ${monthKey} ${wasActive ? 'katılmadı' : 'katıldı'} olarak işaretlendi.`);
+      showToast(`${member.name}: ${monthKey} ${wasActive ? 'katılmadı' : 'katıldı'} olarak işaretlendi. Kişi başı tutar güncellendi.`);
     };
 
     const togglePayment = (monthKey, member) => {
@@ -2074,7 +2075,7 @@
                               >
                                 {!isActive ? (
                                   <button onClick={() => toggleMembershipMonth(m.key, member)} title={`${member.name} bu ay katıldı olarak işaretle`} className={`text-xs underline underline-offset-2 hover:text-[#1DB954] ${isLightMode ? 'text-slate-500' : 'text-zinc-500'}`}>Katılmamıştı · Katıldı yap</button>
-                                ) : <button
+                                ) : <div className="flex flex-col items-center gap-1"><button
                                   onClick={() => togglePayment(m.key, member)}
                                   className={`w-full py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-sm cursor-pointer ${
                                     isPaid
@@ -2098,7 +2099,7 @@
                                       <span>Ödemedi</span>
                                     </>
                                   )}
-                                </button>}
+                                </button><button onClick={() => toggleMembershipMonth(m.key, member)} className={`text-[10px] underline underline-offset-2 ${isLightMode ? 'text-slate-500 hover:text-rose-600' : 'text-zinc-500 hover:text-rose-400'}`} title={`${member.name} bu ay katılmadı olarak işaretle`}>Bu ay katılmadı</button></div>}
                               </td>
                             );
                           })}
