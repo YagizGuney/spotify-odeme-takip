@@ -115,6 +115,9 @@
   /* =====================================================================
    * 2) GITHUB GIST ILE ESITLEME (sunucu gerekmez)
    * ===================================================================== */
+  // Remove any token previously persisted across browser sessions.
+  // Existing users will need to enter their token again.
+  try { localStorage.removeItem('spt_token'); } catch (e) {}
   const API = 'https://api.github.com';
   const FILE = 'spotify-aile-paketi.json';
 
@@ -408,7 +411,7 @@
                 Bağlan ve Eşitle
               </button>
               <p className={`text-[11px] ${sub}`}>
-                Token sadece bu tarayıcının hafızasında durur, koda veya GitHub'a yazılmaz.
+                Token bu sekmenin oturumu boyunca saklanır; oturum kapanınca tekrar girmen gerekir.
               </p>
             </div>
           ) : (
@@ -508,9 +511,9 @@
 
     /* ---------- Eşitleme ---------- */
 
-    const [token, setToken] = useState(() => lsGet('spt_token') || '');
+    const [token, setToken] = useState(() => sessionStorage.getItem('spt_token') || '');
     const [gistId, setGistId] = useState(() => lsGet('spt_gist') || '');
-    const [syncState, setSyncState] = useState(() => (lsGet('spt_token') ? 'idle' : 'off'));
+    const [syncState, setSyncState] = useState(() => (sessionStorage.getItem('spt_token') ? 'idle' : 'off'));
     const [syncMsg, setSyncMsg] = useState('');
     const [lastSyncAt, setLastSyncAt] = useState(null);
 
@@ -656,7 +659,7 @@
         showToast('Lütfen GitHub token\'ını yapıştır.');
         return;
       }
-      lsSet('spt_token', tk);
+      sessionStorage.setItem('spt_token', tk);
       tokenRef.current = tk;
       if (tk === token) {
         syncNow();
@@ -667,7 +670,7 @@
     };
 
     const handleDisconnect = () => {
-      lsDel('spt_token');
+      sessionStorage.removeItem('spt_token');
       lsDel('spt_gist');
       tokenRef.current = '';
       setToken('');
