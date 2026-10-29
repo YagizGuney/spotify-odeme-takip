@@ -191,6 +191,8 @@
    * ===================================================================== */
   const MAX_MEMBERS = 6;
   const START_KEY = '2024-12';
+  const memberStartKey = (member) => member.startKey || START_KEY;
+  const memberIsActive = (member, monthKey) => memberStartKey(member) <= monthKey;
 
   const MONTH_NAMES = [
     'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
@@ -468,6 +470,7 @@
     const [newMemberName, setNewMemberName] = useState('');
     const [cardNewMemberName, setCardNewMemberName] = useState('');
     const [newMemberDefaultPaid, setNewMemberDefaultPaid] = useState(false);
+    const [newMemberStartKey, setNewMemberStartKey] = useState(currentMonthKey);
     const [editingMemberId, setEditingMemberId] = useState(null);
     const [editingMemberName, setEditingMemberName] = useState('');
     const topInputRef = useRef(null);
@@ -715,9 +718,9 @@
 
     const monthPricingMap = useMemo(() => {
       const result = {};
-      const memberCount = Math.max(members.length, 1);
 
       months.forEach((m) => {
+        const memberCount = Math.max(members.filter((member) => memberIsActive(member, m.key)).length, 1);
         if (customMonthPrices[m.key] !== undefined) {
           const total = Number(customMonthPrices[m.key]);
           result[m.key] = {
@@ -750,7 +753,7 @@
       });
 
       return result;
-    }, [months, sortedPriceHistory, customMonthPrices, members.length]);
+    }, [months, sortedPriceHistory, customMonthPrices, members]);
 
     const memberStats = useMemo(() => {
       const stats = {};
@@ -768,6 +771,7 @@
         const priceInfo = monthPricingMap[m.key];
         const perPerson = priceInfo ? priceInfo.perPerson : 0;
         members.forEach((mem) => {
+          if (!memberIsActive(mem, m.key)) return;
           if (isPaidFn(payments, m.key, mem)) {
             stats[mem.id].paidMonthsCount += 1;
             stats[mem.id].paidTotalTL += perPerson;
@@ -785,6 +789,7 @@
     /* ---------- İşlemler ---------- */
 
     const togglePayment = (monthKey, member) => {
+      if (!memberIsActive(member, monthKey)) return;
       mutate((prev) => {
         const cur = isPaidFn(prev.payments, monthKey, member);
         return {
@@ -801,7 +806,7 @@
       if (!paidStatus && !window.confirm(`${found?.label || monthKey} için tüm üyeler "Ödemedi" yapılsın mı?`)) return;
       mutate((prev) => {
         const row = {};
-        prev.members.forEach((m) => {
+        prev.members.filter((m) => memberIsActive(m, monthKey)).forEach((m) => {
           row[m.id] = paidStatus;
         });
         return { payments: { ...prev.payments, [monthKey]: row } };
@@ -814,7 +819,7 @@
       if (!paidStatus && !window.confirm(`${mem?.name} için tüm aylar "Ödemedi" yapılsın mı?`)) return;
       mutate((prev) => {
         const next = { ...prev.payments };
-        months.forEach((m) => {
+        months.filter((m) => memberIsActive(mem, m.key)).forEach((m) => {
           next[m.key] = { ...(next[m.key] || {}), [memberId]: paidStatus };
         });
         return { payments: next };
@@ -822,7 +827,7 @@
       showToast(`${mem?.name} için tüm aylar ${paidStatus ? 'Ödedi' : 'Ödemedi'} olarak güncellendi.`);
     };
 
-    const addMemberByName = (rawName, fromCard = false) => {
+    const addMemberByName = (rawName, fromCard = false, isAdmin = false) => {
       if (members.length >= MAX_MEMBERS) {
         showToast(`Spotify Aile Paketi en fazla ${MAX_MEMBERS} üye olabilir! (${MAX_MEMBERS}/${MAX_MEMBERS} Dolu)`);
         return;
@@ -838,13 +843,14 @@
       const newId = `u_${Date.now()}`;
       const used = new Set(members.map((m) => m.color));
       const color = AVATAR_COLORS.find((c) => !used.has(c)) || AVATAR_COLORS[members.length % AVATAR_COLORS.length];
-      const newMember = { id: newId, name: trimmed, isAdmin: false, color };
-      const paidDefault = newMemberDefaultPaid;
+      const startKey = fromCard ? currentMonthKey() : newMemberStartKey;
+      const newMember = { id: newId, name: trimmed, isAdmin, startKey, color };
+      const paidDefault = isAdmin || newMemberDefaultPaid;
 
       mutate((prev) => {
         const next = { ...prev.payments };
         months.forEach((m) => {
-          next[m.key] = { ...(next[m.key] || {}), [newId]: paidDefault };
+          if (m.key >= startKey) next[m.key] = { ...(next[m.key] || {}), [newId]: paidDefault };
         });
         return { members: [...prev.members, newMember], payments: next };
       });
@@ -876,6 +882,12 @@
       mutate((prev) => ({ members: prev.members.map((m) => (m.id === id ? { ...m, name: trimmed } : m)) }));
       setEditingMemberId(null);
       showToast('Üye ismi güncellendi.');
+    };
+
+    const updateMemberStartKey = (id, startKey) => {
+      if (!startKey) return;
+      mutate((prev) => ({ members: prev.members.map((m) => (m.id === id ? { ...m, startKey } : m)) }));
+      showToast('Üyenin başlangıç ayı güncellendi; ödeme hesabı yeniden düzenlendi.');
     };
 
     const handleAddZam = (e) => {
@@ -1246,14 +1258,32 @@
                         onChange={(e) => setNewMemberDefaultPaid(e.target.checked)}
                         className="accent-[#1DB954] rounded"
                       />
-                      <span>Geçmişi Ödedi Say</span>
+                      <span>Katıldığı tarihten itibaren ödedi say</span>
                     </label>
+                    <input
+                      type="month"
+                      value={newMemberStartKey}
+                      max={currentMonthKey()}
+                      onChange={(e) => setNewMemberStartKey(e.target.value)}
+                      title="Üyenin pakete katıldığı ay"
+                      className={`border rounded-xl px-2.5 py-2.5 text-xs focus:outline-none focus:border-[#1DB954] ${isLightMode ? 'bg-white border-slate-300 text-slate-900' : 'bg-zinc-900 border-zinc-700 text-white'}`}
+                    />
                     <button
                       type="submit"
                       className="flex items-center gap-1.5 bg-[#1DB954] hover:bg-[#1ed760] text-black font-bold text-sm px-4 py-2.5 rounded-xl transition shadow-md shadow-[#1DB954]/10 shrink-0 cursor-pointer"
                     >
                       <UserPlus className="w-4 h-4" />
                       <span>Üye Ekle</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isMaxReached}
+                      onClick={() => addMemberByName(newMemberName, false, true)}
+                      className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed text-black font-bold text-sm px-4 py-2.5 rounded-xl transition shadow-sm shrink-0 cursor-pointer"
+                      title="Pakete yeni yönetici ekle"
+                    >
+                      <Crown className="w-4 h-4" />
+                      <span>Yönetici Ekle</span>
                     </button>
                   </>
                 )}
@@ -1337,6 +1367,18 @@
                               </button>
                             </div>
                           )}
+                          <span className={`text-xs block ${isLightMode ? 'text-slate-500' : 'text-zinc-400'}`}>
+                            Başlangıç ayı:
+                            <input
+                              type="month"
+                              value={memberStartKey(member)}
+                              max={currentMonthKey()}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={(e) => updateMemberStartKey(member.id, e.target.value)}
+                              className={`ml-2 border rounded-md px-1.5 py-1 text-[11px] ${isLightMode ? 'bg-white border-slate-300 text-slate-700' : 'bg-zinc-950 border-zinc-700 text-zinc-200'}`}
+                              aria-label={`${member.name} başlangıç ayı`}
+                            />
+                          </span>
                           <span className={`text-xs block ${isLightMode ? 'text-slate-500' : 'text-zinc-400'}`}>
                             {st.paidMonthsCount} ay ödedi ({fmt(st.paidTotalTL)} ₺)
                           </span>
@@ -1995,6 +2037,7 @@
 
                           {members.map((member) => {
                             const isPaid = isPaidFn(payments, m.key, member);
+                            const isActive = memberIsActive(member, m.key);
                             const isHighlighted = selectedUserHighlight === member.id;
 
                             return (
@@ -2004,7 +2047,9 @@
                                   isLightMode ? 'border-slate-200/70' : 'border-zinc-800/50'
                                 } ${isHighlighted ? (isLightMode ? 'bg-emerald-50/60' : 'bg-[#1DB954]/10') : ''}`}
                               >
-                                <button
+                                {!isActive ? (
+                                  <span className={`text-xs ${isLightMode ? 'text-slate-400' : 'text-zinc-600'}`}>Katılmamıştı</span>
+                                ) : <button
                                   onClick={() => togglePayment(m.key, member)}
                                   className={`w-full py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-sm cursor-pointer ${
                                     isPaid
@@ -2028,7 +2073,7 @@
                                       <span>Ödemedi</span>
                                     </>
                                   )}
-                                </button>
+                                </button>}
                               </td>
                             );
                           })}
